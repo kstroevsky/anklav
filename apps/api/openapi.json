@@ -85,6 +85,20 @@
         ]
       }
     },
+    "/api/v1/auth/preferences": {
+      "patch": {
+        "operationId": "AuthController_preferences",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
     "/api/v1/accounts": {
       "get": {
         "operationId": "AccountController_list",
@@ -163,6 +177,32 @@
         "tags": [
           "Workspace"
         ]
+      },
+      "delete": {
+        "operationId": "WorkspaceController_delete",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/restore": {
+      "post": {
+        "operationId": "WorkspaceController_restore",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
       }
     },
     "/api/v1/workspaces/{workspaceId}/members": {
@@ -183,6 +223,20 @@
         "parameters": [],
         "responses": {
           "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/available-users": {
+      "get": {
+        "operationId": "WorkspaceController_availableUsers",
+        "parameters": [],
+        "responses": {
+          "200": {
             "description": ""
           }
         },

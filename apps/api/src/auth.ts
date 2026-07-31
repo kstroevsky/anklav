@@ -15,6 +15,7 @@ export interface AuthUser {
   email: string;
   displayName: string;
   instanceRole: 'user' | 'instance_admin';
+  theme: 'system' | 'light' | 'dark';
 }
 
 export type AuthedRequest = FastifyRequest & { user: AuthUser; sessionId: string; csrfToken: string };
@@ -107,6 +108,11 @@ export class AuthService {
     await this.database.db.delete(sessions).where(eq(sessions.userId, user.id));
   }
 
+  async updateTheme(request: AuthedRequest, theme: 'system' | 'light' | 'dark'): Promise<AuthUser> {
+    const [updated] = await this.database.db.update(users).set({ theme, updatedAt: new Date() }).where(eq(users.id, request.user.id)).returning();
+    return publicUser(updated!);
+  }
+
   async createAccount(actor: AuthUser, input: { email: string; displayName: string; password: string }) {
     if (actor.instanceRole !== 'instance_admin') throw new ForbiddenException('Instance administrator access is required.');
     const [account] = await this.database.db.insert(users).values({
@@ -141,7 +147,7 @@ export class AuthService {
 }
 
 export function publicUser(user: typeof users.$inferSelect): AuthUser {
-  return { id: user.id, email: user.email, displayName: user.displayName, instanceRole: user.instanceRole };
+  return { id: user.id, email: user.email, displayName: user.displayName, instanceRole: user.instanceRole, theme: user.theme as AuthUser['theme'] };
 }
 
 @Injectable()
@@ -202,5 +208,11 @@ export class AuthController {
     const input = parseBody(z.object({ currentPassword: z.string().min(1), nextPassword: z.string().min(12).max(256) }), body);
     await this.auth.changePassword(request, input.currentPassword, input.nextPassword);
     return { ok: true };
+  }
+
+  @Patch('preferences')
+  async preferences(@Req() request: AuthedRequest, @Body() body: unknown) {
+    const input = parseBody(z.object({ theme: z.enum(['system', 'light', 'dark']) }), body);
+    return { user: await this.auth.updateTheme(request, input.theme) };
   }
 }

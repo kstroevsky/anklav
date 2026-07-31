@@ -70,8 +70,21 @@ export class WorkspaceController {
     return this.service.update(workspaceId, user(request), requireVersion(ifMatch), parseBody(workspaceInput.partial(), body));
   }
 
+  @Delete(':workspaceId')
+  delete(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined) {
+    return this.service.softDelete(workspaceId, user(request), requireVersion(ifMatch));
+  }
+
+  @Post(':workspaceId/restore')
+  restore(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined) {
+    return this.service.restore(workspaceId, user(request), requireVersion(ifMatch));
+  }
+
   @Get(':workspaceId/members')
   members(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest) { return this.service.listMembers(workspaceId, user(request)); }
+
+  @Get(':workspaceId/available-users')
+  availableUsers(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest) { return this.service.listAvailableUsers(workspaceId, user(request)); }
 
   @Post(':workspaceId/members')
   addMember(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Body() body: unknown) {
@@ -105,7 +118,7 @@ export class WorkspaceController {
   }
 
   @Get(':workspaceId/projects')
-  projects(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Query('q') q?: string) { return this.resources.listProjects(workspaceId, user(request), q); }
+  projects(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Query() query: Record<string, string | undefined>) { return this.resources.listProjects(workspaceId, user(request), query); }
 
   @Post(':workspaceId/projects')
   createProject(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Body() body: unknown) { return this.resources.createProject(workspaceId, user(request), parseBody(projectInput, body)); }
@@ -117,7 +130,7 @@ export class WorkspaceController {
   updateProject(@Param('workspaceId') workspaceId: string, @Param('projectId') projectId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Body() body: unknown) { return this.resources.updateProject(workspaceId, user(request), projectId, requireVersion(ifMatch), parseBody(projectInput.partial(), body)); }
 
   @Get(':workspaceId/flows')
-  flows(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Query('q') q?: string) { return this.resources.listFlows(workspaceId, user(request), q); }
+  flows(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Query() query: Record<string, string | undefined>) { return this.resources.listFlows(workspaceId, user(request), query); }
 
   @Post(':workspaceId/flows')
   createFlow(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Body() body: unknown) { return this.resources.createFlow(workspaceId, user(request), parseBody(flowInput, body)); }

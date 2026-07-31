@@ -23,9 +23,11 @@ type Membership = typeof workspaceMemberships.$inferSelect;
 export class WorkspaceService {
   constructor(private readonly database: DatabaseService, private readonly activity: ActivityService) {}
 
-  async requireMembership(workspaceId: string, user: AuthUser, minimum: 'member' | 'admin' | 'owner' = 'member'): Promise<Membership> {
-    const [membership] = await this.database.db.select().from(workspaceMemberships)
-      .where(and(eq(workspaceMemberships.workspaceId, workspaceId), eq(workspaceMemberships.userId, user.id), eq(workspaceMemberships.active, true))).limit(1);
+  async requireMembership(workspaceId: string, user: AuthUser, minimum: 'member' | 'admin' | 'owner' = 'member', includeDeleted = false): Promise<Membership> {
+    const [row] = await this.database.db.select({ membership: workspaceMemberships }).from(workspaceMemberships)
+      .innerJoin(workspaces, eq(workspaceMemberships.workspaceId, workspaces.id))
+      .where(and(eq(workspaceMemberships.workspaceId, workspaceId), eq(workspaceMemberships.userId, user.id), eq(workspaceMemberships.active, true), includeDeleted ? undefined : isNull(workspaces.deletedAt))).limit(1);
+    const membership = row?.membership;
     if (!membership) throw new ForbiddenException('You are not an active member of this workspace.');
     const rank = { member: 0, admin: 1, owner: 2 } as const;
     if (rank[membership.role] < rank[minimum]) throw new ForbiddenException('Your workspace role does not allow this action.');
@@ -83,6 +85,28 @@ export class WorkspaceService {
     return updated;
   }
 
+  async softDelete(workspaceId: string, user: AuthUser, version: number) {
+    await this.requireMembership(workspaceId, user, 'owner');
+    const [before] = await this.database.db.select().from(workspaces).where(and(eq(workspaces.id, workspaceId), isNull(workspaces.deletedAt))).limit(1);
+    if (!before) throw new NotFoundException('Workspace not found.');
+    const [deleted] = await this.database.db.update(workspaces).set({ deletedAt: new Date(), deletedByUserId: user.id, version: sql`${workspaces.version} + 1`, updatedAt: new Date() })
+      .where(and(eq(workspaces.id, workspaceId), eq(workspaces.version, version), isNull(workspaces.deletedAt))).returning();
+    if (!deleted) throw new PreconditionFailedException({ title: 'Workspace was updated elsewhere', current: before });
+    await this.activity.append(this.database.db, { workspaceId, subjectType: 'workspace', subjectId: workspaceId, action: 'soft_deleted', actorUserId: user.id, before: { deletedAt: before.deletedAt }, after: { deletedAt: deleted.deletedAt } });
+    return deleted;
+  }
+
+  async restore(workspaceId: string, user: AuthUser, version: number) {
+    await this.requireMembership(workspaceId, user, 'owner', true);
+    const [before] = await this.database.db.select().from(workspaces).where(and(eq(workspaces.id, workspaceId), sql`${workspaces.deletedAt} IS NOT NULL`)).limit(1);
+    if (!before) throw new NotFoundException('Deleted workspace not found.');
+    const [restored] = await this.database.db.update(workspaces).set({ deletedAt: null, deletedByUserId: null, version: sql`${workspaces.version} + 1`, updatedAt: new Date() })
+      .where(and(eq(workspaces.id, workspaceId), eq(workspaces.version, version), sql`${workspaces.deletedAt} IS NOT NULL`)).returning();
+    if (!restored) throw new PreconditionFailedException({ title: 'Workspace was updated elsewhere', current: before });
+    await this.activity.append(this.database.db, { workspaceId, subjectType: 'workspace', subjectId: workspaceId, action: 'restored', actorUserId: user.id, before: { deletedAt: before.deletedAt }, after: { deletedAt: null } });
+    return restored;
+  }
+
   async listMembers(workspaceId: string, user: AuthUser) {
     await this.requireMembership(workspaceId, user);
     return this.database.db.select({
@@ -95,6 +119,12 @@ export class WorkspaceService {
       displayName: users.displayName,
     }).from(workspaceMemberships).innerJoin(users, eq(workspaceMemberships.userId, users.id))
       .where(eq(workspaceMemberships.workspaceId, workspaceId)).orderBy(asc(users.displayName));
+  }
+
+  async listAvailableUsers(workspaceId: string, user: AuthUser) {
+    await this.requireMembership(workspaceId, user, 'admin');
+    return this.database.db.select({ id: users.id, email: users.email, displayName: users.displayName })
+      .from(users).where(eq(users.active, true)).orderBy(asc(users.displayName));
   }
 
   async addMember(workspaceId: string, actor: AuthUser, userId: string, role: 'owner' | 'admin' | 'member') {
@@ -143,13 +173,30 @@ export class WorkspaceService {
 
   async updateWorkflowState(workspaceId: string, user: AuthUser, stateId: string, version: number, input: Partial<Pick<z.infer<typeof workflowInput>, 'name' | 'color' | 'position' | 'isInitial'>>) {
     await this.requireMembership(workspaceId, user, 'admin');
-    const [before] = await this.database.db.select().from(workflowStates).where(and(eq(workflowStates.id, stateId), eq(workflowStates.workspaceId, workspaceId))).limit(1);
-    if (!before) throw new NotFoundException('Workflow state not found.');
-    const [state] = await this.database.db.update(workflowStates).set({ ...input, version: sql`${workflowStates.version} + 1`, updatedAt: new Date() }).where(and(eq(workflowStates.id, stateId), eq(workflowStates.version, version))).returning();
-    if (!state) throw new PreconditionFailedException({ title: 'Workflow state was updated elsewhere', current: before });
-    if (input.isInitial) await this.database.db.update(workflowStates).set({ isInitial: false }).where(and(eq(workflowStates.workspaceId, workspaceId), eq(workflowStates.entityType, state.entityType), sql`${workflowStates.id} <> ${state.id}`));
-    await this.activity.append(this.database.db, { workspaceId, subjectType: 'workflow_state', subjectId: stateId, action: 'updated', actorUserId: user.id, before: pick(before, input), after: pick(state, input) });
-    return state;
+    return this.database.db.transaction(async (tx) => {
+      const [before] = await tx.select().from(workflowStates).where(and(eq(workflowStates.id, stateId), eq(workflowStates.workspaceId, workspaceId))).limit(1);
+      if (!before) throw new NotFoundException('Workflow state not found.');
+      if (before.version !== version) throw new PreconditionFailedException({ title: 'Workflow state was updated elsewhere', current: before });
+      const values = { ...input };
+      if (input.position !== undefined && input.position !== before.position) {
+        const [maximum] = await tx.select({ value: sql<number>`coalesce(max(${workflowStates.position}), 0)` }).from(workflowStates)
+          .where(and(eq(workflowStates.workspaceId, workspaceId), eq(workflowStates.entityType, before.entityType), isNull(workflowStates.archivedAt)));
+        const position = Math.max(0, Math.min(input.position, maximum?.value ?? 0));
+        if (position < before.position) {
+          await tx.update(workflowStates).set({ position: sql`${workflowStates.position} + 1`, updatedAt: new Date() })
+            .where(and(eq(workflowStates.workspaceId, workspaceId), eq(workflowStates.entityType, before.entityType), isNull(workflowStates.archivedAt), sql`${workflowStates.id} <> ${stateId}`, sql`${workflowStates.position} >= ${position}`, sql`${workflowStates.position} < ${before.position}`));
+        } else {
+          await tx.update(workflowStates).set({ position: sql`${workflowStates.position} - 1`, updatedAt: new Date() })
+            .where(and(eq(workflowStates.workspaceId, workspaceId), eq(workflowStates.entityType, before.entityType), isNull(workflowStates.archivedAt), sql`${workflowStates.id} <> ${stateId}`, sql`${workflowStates.position} > ${before.position}`, sql`${workflowStates.position} <= ${position}`));
+        }
+        values.position = position;
+      }
+      const [state] = await tx.update(workflowStates).set({ ...values, version: sql`${workflowStates.version} + 1`, updatedAt: new Date() }).where(and(eq(workflowStates.id, stateId), eq(workflowStates.version, version))).returning();
+      if (!state) throw new PreconditionFailedException({ title: 'Workflow state was updated elsewhere', current: before });
+      if (input.isInitial) await tx.update(workflowStates).set({ isInitial: false }).where(and(eq(workflowStates.workspaceId, workspaceId), eq(workflowStates.entityType, state.entityType), sql`${workflowStates.id} <> ${state.id}`));
+      await this.activity.append(tx, { workspaceId, subjectType: 'workflow_state', subjectId: stateId, action: 'updated', actorUserId: user.id, before: pick(before, input), after: pick(state, input) });
+      return state;
+    });
   }
 
   async archiveWorkflowState(workspaceId: string, user: AuthUser, stateId: string, version: number, replacementStateId: string) {
@@ -157,7 +204,7 @@ export class WorkspaceService {
     return this.database.db.transaction(async (tx) => {
       const [state] = await tx.select().from(workflowStates).where(and(eq(workflowStates.id, stateId), eq(workflowStates.workspaceId, workspaceId))).limit(1);
       const [replacement] = await tx.select().from(workflowStates).where(and(eq(workflowStates.id, replacementStateId), eq(workflowStates.workspaceId, workspaceId))).limit(1);
-      if (!state || !replacement || replacement.entityType !== state.entityType) throw new BadRequestException('A replacement state of the same entity type is required.');
+      if (!state || !replacement || state.archivedAt || replacement.archivedAt || replacement.id === state.id || replacement.entityType !== state.entityType) throw new BadRequestException('An active replacement state of the same entity type is required.');
       if (state.version !== version) throw new PreconditionFailedException('Workflow state was updated elsewhere.');
       const table = state.entityType === 'task' ? (await import('./db/schema')).tasks : (await import('./db/schema')).flows;
       await (tx as any).update(table).set({ workflowStateId: replacement.id, updatedAt: new Date(), version: sql`${table.version} + 1` }).where(and(eq(table.workspaceId, workspaceId), eq(table.workflowStateId, state.id)));

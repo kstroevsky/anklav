@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException, PreconditionFailedException } from '@nestjs/common';
-import { and, asc, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { ActivityService } from './activity.service';
 import type { AuthUser } from './auth';
@@ -19,6 +19,7 @@ import {
   taskFlows,
   taskRelations,
   tasks,
+  users,
   workflowStates,
   workspaceMemberships,
 } from './db/schema';
@@ -26,6 +27,41 @@ import { WorkspaceService } from './workspace.service';
 
 const markdown = z.string().max(100_000);
 const optionalId = z.string().uuid().nullable().optional();
+const pageLimit = 25;
+const maximumPageLimit = 100;
+
+type ListPage<T> = { items: T[]; nextCursor: string | null };
+type UpdatedCursor = { updatedAt: string; id: string };
+
+type ProjectListFilters = {
+  q?: string;
+  status?: string;
+  priority?: string;
+  health?: string;
+  cursor?: string;
+  limit?: string;
+};
+
+type FlowListFilters = {
+  q?: string;
+  stateId?: string;
+  priority?: string;
+  health?: string;
+  cursor?: string;
+  limit?: string;
+};
+
+type TaskListFilters = {
+  q?: string;
+  projectId?: string;
+  flowId?: string;
+  stateId?: string;
+  priority?: string;
+  assigneeMembershipId?: string;
+  labelId?: string;
+  cursor?: string;
+  limit?: string;
+};
 
 export const projectInput = z.object({
   name: z.string().trim().min(1).max(160),
@@ -122,13 +158,26 @@ export class ResourceService {
   }
 
   private async activityFor(workspaceId: string, subjectId: string) {
-    return this.database.db.select().from(activityEvents).where(and(eq(activityEvents.workspaceId, workspaceId), eq(activityEvents.subjectId, subjectId))).orderBy(desc(activityEvents.sequence)).limit(100);
+    const rows = await this.database.db.select({ event: activityEvents, actorName: users.displayName }).from(activityEvents)
+      .leftJoin(users, eq(activityEvents.actorUserId, users.id))
+      .where(and(eq(activityEvents.workspaceId, workspaceId), eq(activityEvents.subjectId, subjectId))).orderBy(desc(activityEvents.sequence)).limit(100);
+    return rows.map(({ event, actorName }) => ({ ...event, actorName }));
   }
 
-  async listProjects(workspaceId: string, user: AuthUser, query?: string) {
+  async listProjects(workspaceId: string, user: AuthUser, filters: ProjectListFilters = {}): Promise<ListPage<typeof projects.$inferSelect>> {
     await this.workspaces.requireMembership(workspaceId, user);
-    const textFilter = query?.trim() ? or(sql`${projects.name} ILIKE ${`%${query.trim()}%`}`, sql`${projects.description} ILIKE ${`%${query.trim()}%`}`) : undefined;
-    return this.database.db.select().from(projects).where(and(eq(projects.workspaceId, workspaceId), isNull(projects.deletedAt), textFilter)).orderBy(asc(projects.name));
+    const cursor = decodeUpdatedCursor(filters.cursor);
+    const textFilter = filters.q?.trim() ? or(sql`${projects.name} ILIKE ${`%${filters.q.trim()}%`}`, sql`${projects.description} ILIKE ${`%${filters.q.trim()}%`}`) : undefined;
+    const rows = await this.database.db.select().from(projects).where(and(
+      eq(projects.workspaceId, workspaceId),
+      isNull(projects.deletedAt),
+      textFilter,
+      filters.status && projectStatuses.includes(filters.status as any) ? eq(projects.status, filters.status as any) : undefined,
+      filters.priority && priorities.includes(filters.priority as any) ? eq(projects.priority, filters.priority as any) : undefined,
+      filters.health && ['unknown', 'on_track', 'at_risk', 'off_track'].includes(filters.health) ? eq(projects.health, filters.health as any) : undefined,
+      beforeUpdatedCursor(projects.updatedAt, projects.id, cursor),
+    )).orderBy(desc(projects.updatedAt), desc(projects.id)).limit(requestedLimit(filters.limit) + 1);
+    return paginate(rows, requestedLimit(filters.limit));
   }
 
   async getProject(workspaceId: string, user: AuthUser, projectId: string) {
@@ -158,11 +207,21 @@ export class ResourceService {
     return updated;
   }
 
-  async listFlows(workspaceId: string, user: AuthUser, query?: string) {
+  async listFlows(workspaceId: string, user: AuthUser, filters: FlowListFilters = {}): Promise<ListPage<{ flow: typeof flows.$inferSelect; state: typeof workflowStates.$inferSelect }>> {
     await this.workspaces.requireMembership(workspaceId, user);
-    const textFilter = query?.trim() ? or(sql`${flows.name} ILIKE ${`%${query.trim()}%`}`, sql`${flows.purpose} ILIKE ${`%${query.trim()}%`}`) : undefined;
-    return this.database.db.select({ flow: flows, state: workflowStates }).from(flows).innerJoin(workflowStates, eq(flows.workflowStateId, workflowStates.id))
-      .where(and(eq(flows.workspaceId, workspaceId), isNull(flows.deletedAt), textFilter)).orderBy(asc(flows.name));
+    const cursor = decodeUpdatedCursor(filters.cursor);
+    const textFilter = filters.q?.trim() ? or(sql`${flows.name} ILIKE ${`%${filters.q.trim()}%`}`, sql`${flows.purpose} ILIKE ${`%${filters.q.trim()}%`}`) : undefined;
+    const rows = await this.database.db.select({ flow: flows, state: workflowStates }).from(flows).innerJoin(workflowStates, eq(flows.workflowStateId, workflowStates.id))
+      .where(and(
+        eq(flows.workspaceId, workspaceId),
+        isNull(flows.deletedAt),
+        textFilter,
+        filters.stateId ? eq(flows.workflowStateId, filters.stateId) : undefined,
+        filters.priority && priorities.includes(filters.priority as any) ? eq(flows.priority, filters.priority as any) : undefined,
+        filters.health && ['unknown', 'on_track', 'at_risk', 'off_track'].includes(filters.health) ? eq(flows.health, filters.health as any) : undefined,
+        beforeUpdatedCursor(flows.updatedAt, flows.id, cursor),
+      )).orderBy(desc(flows.updatedAt), desc(flows.id)).limit(requestedLimit(filters.limit) + 1);
+    return paginate(rows, requestedLimit(filters.limit), (row) => row.flow);
   }
 
   async getFlow(workspaceId: string, user: AuthUser, flowId: string) {
@@ -173,6 +232,7 @@ export class ResourceService {
       .innerJoin(tasks, eq(taskFlows.taskId, tasks.id)).innerJoin(projects, eq(tasks.projectId, projects.id)).innerJoin(workflowStates, eq(tasks.workflowStateId, workflowStates.id))
       .where(and(eq(taskFlows.flowId, flowId), isNull(tasks.deletedAt))).orderBy(asc(projects.name), desc(tasks.updatedAt));
     const criteria = await this.database.db.select().from(convergenceCriteria).where(eq(convergenceCriteria.flowId, flowId)).orderBy(asc(convergenceCriteria.position));
+    const relations = await this.database.db.select().from(flowRelations).where(and(eq(flowRelations.workspaceId, workspaceId), or(eq(flowRelations.sourceFlowId, flowId), eq(flowRelations.targetFlowId, flowId))));
     const blockers = await this.database.db.select({ relation: flowRelations, flow: flows, state: workflowStates }).from(flowRelations).innerJoin(flows, eq(flowRelations.sourceFlowId, flows.id)).innerJoin(workflowStates, eq(flows.workflowStateId, workflowStates.id))
       .where(and(eq(flowRelations.targetFlowId, flowId), eq(flowRelations.type, 'blocks'), isNull(flows.deletedAt)));
     const projectsInFlow = Array.from(new Map(linkedTasks.map(({ project }) => [project.id, project])).values());
@@ -182,10 +242,12 @@ export class ResourceService {
       state,
       tasks: linkedTasks,
       criteria,
+      relations,
       blockers,
       participatingProjects: projectsInFlow,
       allowedProjects: await this.database.db.select({ id: projects.id, name: projects.name }).from(flowAllowedProjects).innerJoin(projects, eq(flowAllowedProjects.projectId, projects.id)).where(eq(flowAllowedProjects.flowId, flowId)),
       labels: await this.labelsFor('flow', flowId),
+      comments: await this.commentsFor('flow', flowId),
       activity: await this.activityFor(workspaceId, flowId),
       signals: { criteria: { completed: criteria.filter((item) => item.completed).length, total: criteria.length }, taskStates: countBy(linkedTasks, (item) => item.state.taskSemantic), unresolvedBlockers: blockers.filter((item) => item.state.flowSemantic !== 'converged').length, transitionWarnings: warnings },
     };
@@ -227,8 +289,9 @@ export class ResourceService {
     });
   }
 
-  async listTasks(workspaceId: string, user: AuthUser, filters: { q?: string; projectId?: string; flowId?: string; stateId?: string; priority?: string; assigneeMembershipId?: string; labelId?: string }) {
+  async listTasks(workspaceId: string, user: AuthUser, filters: TaskListFilters): Promise<ListPage<{ task: typeof tasks.$inferSelect; project: typeof projects.$inferSelect; state: typeof workflowStates.$inferSelect }>> {
     await this.workspaces.requireMembership(workspaceId, user);
+    const cursor = decodeUpdatedCursor(filters.cursor);
     const terms = [eq(tasks.workspaceId, workspaceId), isNull(tasks.deletedAt)];
     if (filters.q?.trim()) terms.push(or(sql`${tasks.title} ILIKE ${`%${filters.q.trim()}%`}`, sql`${tasks.description} ILIKE ${`%${filters.q.trim()}%`}`)!);
     if (filters.projectId) terms.push(eq(tasks.projectId, filters.projectId));
@@ -238,7 +301,13 @@ export class ResourceService {
     let base = this.database.db.select({ task: tasks, project: projects, state: workflowStates }).from(tasks).innerJoin(projects, eq(tasks.projectId, projects.id)).innerJoin(workflowStates, eq(tasks.workflowStateId, workflowStates.id));
     if (filters.flowId) base = base.innerJoin(taskFlows, eq(tasks.id, taskFlows.taskId)) as any;
     if (filters.labelId) base = base.innerJoin(labelAssignments, eq(tasks.id, labelAssignments.taskId)) as any;
-    return (base as any).where(and(...terms, filters.flowId ? eq(taskFlows.flowId, filters.flowId) : undefined, filters.labelId ? eq(labelAssignments.labelId, filters.labelId) : undefined)).orderBy(desc(tasks.updatedAt));
+    const rows = await (base as any).where(and(
+      ...terms,
+      filters.flowId ? eq(taskFlows.flowId, filters.flowId) : undefined,
+      filters.labelId ? eq(labelAssignments.labelId, filters.labelId) : undefined,
+      beforeUpdatedCursor(tasks.updatedAt, tasks.id, cursor),
+    )).orderBy(desc(tasks.updatedAt), desc(tasks.id)).limit(requestedLimit(filters.limit) + 1);
+    return paginate(rows, requestedLimit(filters.limit), (row) => row.task);
   }
 
   async getTask(workspaceId: string, user: AuthUser, taskId: string) {
@@ -280,7 +349,12 @@ export class ResourceService {
     return this.database.db.transaction(async (tx) => {
       const nextState = input.workflowStateId ? await this.state(workspaceId, input.workflowStateId, 'task') : null;
       const timestamps = nextState ? taskTimestamps(nextState.taskSemantic!, before) : {};
-      const [updated] = await tx.update(tasks).set({ ...values, ...timestamps, workflowStateId: nextState?.id, version: sql`${tasks.version} + 1`, updatedAt: new Date() }).where(and(eq(tasks.id, taskId), eq(tasks.workspaceId, workspaceId), eq(tasks.version, version), isNull(tasks.deletedAt))).returning();
+      const reviewFields = input.humanReviewRequired === true && !before.humanReviewRequired
+        ? { reviewStatus: 'pending' as const, reviewDecidedAt: null, reviewNote: '' }
+        : input.humanReviewRequired === false && before.humanReviewRequired
+          ? { reviewStatus: 'not_required' as const, reviewDecidedAt: null, reviewNote: '' }
+          : {};
+      const [updated] = await tx.update(tasks).set({ ...values, ...reviewFields, ...timestamps, workflowStateId: nextState?.id, version: sql`${tasks.version} + 1`, updatedAt: new Date() }).where(and(eq(tasks.id, taskId), eq(tasks.workspaceId, workspaceId), eq(tasks.version, version), isNull(tasks.deletedAt))).returning();
       if (!updated) throw new PreconditionFailedException({ title: 'Task was updated elsewhere', current: before });
       if (primaryFlowId !== undefined || relatedFlowIds !== undefined) await this.linkTaskFlows(workspaceId, updated!, user.id, primaryFlowId ?? null, relatedFlowIds ?? [], tx);
       const transitionWarnings = nextState ? await this.taskWarnings(workspaceId, updated!, nextState.taskSemantic!) : [];
@@ -629,6 +703,39 @@ function countBy<T>(items: T[], key: (item: T) => string | null): Record<string,
     total[value] = (total[value] ?? 0) + 1;
     return total;
   }, {});
+}
+
+function requestedLimit(value: string | undefined): number {
+  const parsed = Number(value ?? pageLimit);
+  if (!Number.isInteger(parsed) || parsed < 1) return pageLimit;
+  return Math.min(parsed, maximumPageLimit);
+}
+
+function decodeUpdatedCursor(value: string | undefined): UpdatedCursor | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as UpdatedCursor;
+    if (!parsed.id || Number.isNaN(new Date(parsed.updatedAt).valueOf())) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function beforeUpdatedCursor(updatedAt: any, id: any, cursor: UpdatedCursor | null) {
+  if (!cursor) return undefined;
+  const timestamp = new Date(cursor.updatedAt);
+  return or(lt(updatedAt, timestamp), and(eq(updatedAt, timestamp), lt(id, cursor.id)));
+}
+
+function paginate<T>(rows: T[], limit: number, cursorSubject: (row: T) => { id: string; updatedAt: Date } = (row) => row as { id: string; updatedAt: Date }): ListPage<T> {
+  const items = rows.slice(0, limit);
+  const last = items.at(-1);
+  const cursor = last && rows.length > limit ? cursorSubject(last) : null;
+  return {
+    items,
+    nextCursor: cursor ? Buffer.from(JSON.stringify({ id: cursor.id, updatedAt: cursor.updatedAt.toISOString() })).toString('base64url') : null,
+  };
 }
 
 function taskTimestamps(semantic: string, current: typeof tasks.$inferSelect) {
