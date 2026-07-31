@@ -774,6 +774,258 @@
           "Workspace"
         ]
       }
+    },
+    "/.well-known/oauth-protected-resource": {
+      "get": {
+        "operationId": "OAuthMetadataController_protectedResource",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OAuthMetadata"
+        ]
+      }
+    },
+    "/.well-known/oauth-protected-resource/mcp": {
+      "get": {
+        "operationId": "OAuthMetadataController_protectedResourceAtMcp",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OAuthMetadata"
+        ]
+      }
+    },
+    "/.well-known/oauth-authorization-server": {
+      "get": {
+        "operationId": "OAuthMetadataController_authorizationServer",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OAuthMetadata"
+        ]
+      }
+    },
+    "/oauth/register": {
+      "post": {
+        "operationId": "OAuthController_register",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OAuth"
+        ]
+      }
+    },
+    "/oauth/authorize": {
+      "get": {
+        "operationId": "OAuthController_authorize",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OAuth"
+        ]
+      }
+    },
+    "/oauth/token": {
+      "post": {
+        "operationId": "OAuthController_token",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OAuth"
+        ]
+      }
+    },
+    "/oauth/revoke": {
+      "post": {
+        "operationId": "OAuthController_revoke",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OAuth"
+        ]
+      }
+    },
+    "/api/v1/oauth/requests/{requestId}": {
+      "get": {
+        "operationId": "OAuthSettingsController_request",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OAuthSettings"
+        ]
+      }
+    },
+    "/api/v1/oauth/requests/{requestId}/decision": {
+      "post": {
+        "operationId": "OAuthSettingsController_decide",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OAuthSettings"
+        ]
+      }
+    },
+    "/api/v1/oauth/grants": {
+      "get": {
+        "operationId": "OAuthSettingsController_grants",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OAuthSettings"
+        ]
+      }
+    },
+    "/api/v1/oauth/grants/{grantId}": {
+      "delete": {
+        "operationId": "OAuthSettingsController_revokeGrant",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OAuthSettings"
+        ]
+      }
+    },
+    "/mcp": {
+      "get": {
+        "operationId": "McpController_handle_get",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Mcp"
+        ]
+      },
+      "post": {
+        "operationId": "McpController_handle_post",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Mcp"
+        ]
+      },
+      "put": {
+        "operationId": "McpController_handle_put",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Mcp"
+        ]
+      },
+      "delete": {
+        "operationId": "McpController_handle_delete",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Mcp"
+        ]
+      },
+      "patch": {
+        "operationId": "McpController_handle_patch",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Mcp"
+        ]
+      },
+      "options": {
+        "operationId": "McpController_handle_options",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Mcp"
+        ]
+      },
+      "head": {
+        "operationId": "McpController_handle_head",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Mcp"
+        ]
+      },
+      "search": {
+        "operationId": "McpController_handle_search",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Mcp"
+        ]
+      }
     }
   },
   "info": {

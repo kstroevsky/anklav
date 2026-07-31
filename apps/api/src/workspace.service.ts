@@ -69,7 +69,7 @@ export class WorkspaceService {
         ...DEFAULT_TASK_STATES.map(([name, semantic, color], position) => ({ workspaceId: workspace!.id, entityType: 'task' as const, name, color, taskSemantic: semantic, position, isInitial: position === 0 })),
         ...DEFAULT_FLOW_STATES.map(([name, semantic, color], position) => ({ workspaceId: workspace!.id, entityType: 'flow' as const, name, color, flowSemantic: semantic, position, isInitial: position === 0 })),
       ]);
-      await this.activity.append(tx, { workspaceId: workspace!.id, subjectType: 'workspace', subjectId: workspace!.id, action: 'created', actorUserId: user.id, after: { name: workspace!.name } });
+      await this.activity.append(tx, { workspaceId: workspace!.id, subjectType: 'workspace', subjectId: workspace!.id, action: 'created', actor: user, after: { name: workspace!.name } });
       return workspace;
     });
   }
@@ -81,7 +81,7 @@ export class WorkspaceService {
     const [updated] = await this.database.db.update(workspaces).set({ ...input, version: sql`${workspaces.version} + 1`, updatedAt: new Date() })
       .where(and(eq(workspaces.id, workspaceId), eq(workspaces.version, version), isNull(workspaces.deletedAt))).returning();
     if (!updated) throw new PreconditionFailedException({ title: 'Workspace was updated elsewhere', current: before });
-    await this.activity.append(this.database.db, { workspaceId, subjectType: 'workspace', subjectId: workspaceId, action: 'updated', actorUserId: user.id, before: pick(before, input), after: pick(updated, input) });
+    await this.activity.append(this.database.db, { workspaceId, subjectType: 'workspace', subjectId: workspaceId, action: 'updated', actor: user, before: pick(before, input), after: pick(updated, input) });
     return updated;
   }
 
@@ -92,7 +92,7 @@ export class WorkspaceService {
     const [deleted] = await this.database.db.update(workspaces).set({ deletedAt: new Date(), deletedByUserId: user.id, version: sql`${workspaces.version} + 1`, updatedAt: new Date() })
       .where(and(eq(workspaces.id, workspaceId), eq(workspaces.version, version), isNull(workspaces.deletedAt))).returning();
     if (!deleted) throw new PreconditionFailedException({ title: 'Workspace was updated elsewhere', current: before });
-    await this.activity.append(this.database.db, { workspaceId, subjectType: 'workspace', subjectId: workspaceId, action: 'soft_deleted', actorUserId: user.id, before: { deletedAt: before.deletedAt }, after: { deletedAt: deleted.deletedAt } });
+    await this.activity.append(this.database.db, { workspaceId, subjectType: 'workspace', subjectId: workspaceId, action: 'soft_deleted', actor: user, before: { deletedAt: before.deletedAt }, after: { deletedAt: deleted.deletedAt } });
     return deleted;
   }
 
@@ -103,7 +103,7 @@ export class WorkspaceService {
     const [restored] = await this.database.db.update(workspaces).set({ deletedAt: null, deletedByUserId: null, version: sql`${workspaces.version} + 1`, updatedAt: new Date() })
       .where(and(eq(workspaces.id, workspaceId), eq(workspaces.version, version), sql`${workspaces.deletedAt} IS NOT NULL`)).returning();
     if (!restored) throw new PreconditionFailedException({ title: 'Workspace was updated elsewhere', current: before });
-    await this.activity.append(this.database.db, { workspaceId, subjectType: 'workspace', subjectId: workspaceId, action: 'restored', actorUserId: user.id, before: { deletedAt: before.deletedAt }, after: { deletedAt: null } });
+    await this.activity.append(this.database.db, { workspaceId, subjectType: 'workspace', subjectId: workspaceId, action: 'restored', actor: user, before: { deletedAt: before.deletedAt }, after: { deletedAt: null } });
     return restored;
   }
 
@@ -133,7 +133,7 @@ export class WorkspaceService {
     if (!target) throw new NotFoundException('User not found.');
     const [membership] = await this.database.db.insert(workspaceMemberships).values({ workspaceId, userId, role, active: true })
       .onConflictDoUpdate({ target: [workspaceMemberships.workspaceId, workspaceMemberships.userId], set: { role, active: true, updatedAt: new Date() } }).returning();
-    await this.activity.append(this.database.db, { workspaceId, subjectType: 'membership', subjectId: membership!.id, action: 'member_added', actorUserId: actor.id, after: { userId, role } });
+    await this.activity.append(this.database.db, { workspaceId, subjectType: 'membership', subjectId: membership!.id, action: 'member_added', actor, after: { userId, role } });
     return membership;
   }
 
@@ -147,7 +147,7 @@ export class WorkspaceService {
     }
     if (caller.role !== 'owner' && membership.role === 'owner') throw new ForbiddenException('Only an owner may change another owner.');
     const [updated] = await this.database.db.update(workspaceMemberships).set({ ...versionless, updatedAt: new Date() }).where(eq(workspaceMemberships.id, membershipId)).returning();
-    await this.activity.append(this.database.db, { workspaceId, subjectType: 'membership', subjectId: membershipId, action: 'member_updated', actorUserId: actor.id, before: { role: membership.role, active: membership.active }, after: { role: updated!.role, active: updated!.active } });
+    await this.activity.append(this.database.db, { workspaceId, subjectType: 'membership', subjectId: membershipId, action: 'member_updated', actor, before: { role: membership.role, active: membership.active }, after: { role: updated!.role, active: updated!.active } });
     return updated;
   }
 
@@ -167,7 +167,7 @@ export class WorkspaceService {
       flowSemantic: entityType === 'flow' ? input.semantic as any : null,
     }).returning();
     if (input.isInitial) await this.database.db.update(workflowStates).set({ isInitial: false }).where(and(eq(workflowStates.workspaceId, workspaceId), eq(workflowStates.entityType, entityType), sql`${workflowStates.id} <> ${state!.id}`));
-    await this.activity.append(this.database.db, { workspaceId, subjectType: 'workflow_state', subjectId: state!.id, action: 'created', actorUserId: user.id, after: { name: state!.name, semantic: input.semantic } });
+    await this.activity.append(this.database.db, { workspaceId, subjectType: 'workflow_state', subjectId: state!.id, action: 'created', actor: user, after: { name: state!.name, semantic: input.semantic } });
     return state;
   }
 
@@ -194,7 +194,7 @@ export class WorkspaceService {
       const [state] = await tx.update(workflowStates).set({ ...values, version: sql`${workflowStates.version} + 1`, updatedAt: new Date() }).where(and(eq(workflowStates.id, stateId), eq(workflowStates.version, version))).returning();
       if (!state) throw new PreconditionFailedException({ title: 'Workflow state was updated elsewhere', current: before });
       if (input.isInitial) await tx.update(workflowStates).set({ isInitial: false }).where(and(eq(workflowStates.workspaceId, workspaceId), eq(workflowStates.entityType, state.entityType), sql`${workflowStates.id} <> ${state.id}`));
-      await this.activity.append(tx, { workspaceId, subjectType: 'workflow_state', subjectId: stateId, action: 'updated', actorUserId: user.id, before: pick(before, input), after: pick(state, input) });
+      await this.activity.append(tx, { workspaceId, subjectType: 'workflow_state', subjectId: stateId, action: 'updated', actor: user, before: pick(before, input), after: pick(state, input) });
       return state;
     });
   }
@@ -209,7 +209,7 @@ export class WorkspaceService {
       const table = state.entityType === 'task' ? (await import('./db/schema')).tasks : (await import('./db/schema')).flows;
       await (tx as any).update(table).set({ workflowStateId: replacement.id, updatedAt: new Date(), version: sql`${table.version} + 1` }).where(and(eq(table.workspaceId, workspaceId), eq(table.workflowStateId, state.id)));
       const [archived] = await tx.update(workflowStates).set({ archivedAt: new Date(), isInitial: false, version: sql`${workflowStates.version} + 1`, updatedAt: new Date() }).where(eq(workflowStates.id, state.id)).returning();
-      await this.activity.append(tx, { workspaceId, subjectType: 'workflow_state', subjectId: state.id, action: 'archived_and_reassigned', actorUserId: user.id, metadata: { replacementStateId } });
+      await this.activity.append(tx, { workspaceId, subjectType: 'workflow_state', subjectId: state.id, action: 'archived_and_reassigned', actor: user, metadata: { replacementStateId } });
       return archived;
     });
   }

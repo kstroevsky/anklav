@@ -193,7 +193,7 @@ export class ResourceService {
   async createProject(workspaceId: string, user: AuthUser, input: z.infer<typeof projectInput>) {
     await this.workspaces.requireMembership(workspaceId, user, 'member');
     const [project] = await this.database.db.insert(projects).values({ workspaceId, ...input }).returning();
-    await this.activityService.append(this.database.db, { workspaceId, subjectType: 'project', subjectId: project!.id, action: 'created', actorUserId: user.id, after: { name: project!.name } });
+    await this.activityService.append(this.database.db, { workspaceId, subjectType: 'project', subjectId: project!.id, action: 'created', actor: user, after: { name: project!.name } });
     return project;
   }
 
@@ -203,7 +203,7 @@ export class ResourceService {
     const [updated] = await this.database.db.update(projects).set({ ...input, version: sql`${projects.version} + 1`, updatedAt: new Date() })
       .where(and(eq(projects.id, projectId), eq(projects.workspaceId, workspaceId), eq(projects.version, version), isNull(projects.deletedAt))).returning();
     if (!updated) throw new PreconditionFailedException({ title: 'Project was updated elsewhere', current: before });
-    await this.activityService.append(this.database.db, { workspaceId, subjectType: 'project', subjectId: projectId, action: 'updated', actorUserId: user.id, before: selectChanged(before, input), after: selectChanged(updated, input) });
+    await this.activityService.append(this.database.db, { workspaceId, subjectType: 'project', subjectId: projectId, action: 'updated', actor: user, before: selectChanged(before, input), after: selectChanged(updated, input) });
     return updated;
   }
 
@@ -263,7 +263,7 @@ export class ResourceService {
     return this.database.db.transaction(async (tx) => {
       const [flow] = await tx.insert(flows).values({ workspaceId, ...values, workflowStateId: state.id }).returning();
       if (allowedProjectIds?.length) await tx.insert(flowAllowedProjects).values(allowedProjectIds.map((projectId) => ({ flowId: flow!.id, projectId })));
-      await this.activityService.append(tx, { workspaceId, subjectType: 'flow', subjectId: flow!.id, action: 'created', actorUserId: user.id, after: { name: flow!.name } });
+      await this.activityService.append(tx, { workspaceId, subjectType: 'flow', subjectId: flow!.id, action: 'created', actor: user, after: { name: flow!.name } });
       return flow;
     });
   }
@@ -284,7 +284,7 @@ export class ResourceService {
         await tx.delete(flowAllowedProjects).where(eq(flowAllowedProjects.flowId, flowId));
         if (allowedProjectIds.length) await tx.insert(flowAllowedProjects).values(allowedProjectIds.map((projectId) => ({ flowId, projectId })));
       }
-      await this.activityService.append(tx, { workspaceId, subjectType: 'flow', subjectId: flowId, action: 'updated', actorUserId: user.id, before: selectChanged(before, values), after: selectChanged(updated, values) });
+      await this.activityService.append(tx, { workspaceId, subjectType: 'flow', subjectId: flowId, action: 'updated', actor: user, before: selectChanged(before, values), after: selectChanged(updated, values) });
       return updated;
     });
   }
@@ -332,7 +332,7 @@ export class ResourceService {
     return this.database.db.transaction(async (tx) => {
       const [task] = await tx.insert(tasks).values({ workspaceId, ...values, workflowStateId: state.id, reviewStatus: values.humanReviewRequired ? 'pending' : 'not_required' }).returning();
       await this.linkTaskFlows(workspaceId, task!, user.id, primaryFlowId, relatedFlowIds ?? [], tx);
-      await this.activityService.append(tx, { workspaceId, subjectType: 'task', subjectId: task!.id, action: 'created', actorUserId: user.id, after: { title: task!.title, projectId: task!.projectId } });
+      await this.activityService.append(tx, { workspaceId, subjectType: 'task', subjectId: task!.id, action: 'created', actor: user, after: { title: task!.title, projectId: task!.projectId } });
       return task;
     });
   }
@@ -358,7 +358,7 @@ export class ResourceService {
       if (!updated) throw new PreconditionFailedException({ title: 'Task was updated elsewhere', current: before });
       if (primaryFlowId !== undefined || relatedFlowIds !== undefined) await this.linkTaskFlows(workspaceId, updated!, user.id, primaryFlowId ?? null, relatedFlowIds ?? [], tx);
       const transitionWarnings = nextState ? await this.taskWarnings(workspaceId, updated!, nextState.taskSemantic!) : [];
-      await this.activityService.append(tx, { workspaceId, subjectType: 'task', subjectId: taskId, action: nextState ? 'updated_with_status_change' : 'updated', actorUserId: user.id, before: selectChanged(before, values), after: selectChanged(updated!, values), metadata: transitionWarnings.length ? { transitionWarnings } : {} });
+      await this.activityService.append(tx, { workspaceId, subjectType: 'task', subjectId: taskId, action: nextState ? 'updated_with_status_change' : 'updated', actor: user, before: selectChanged(before, values), after: selectChanged(updated!, values), metadata: transitionWarnings.length ? { transitionWarnings } : {} });
       return { ...updated, transitionWarnings };
     });
   }
@@ -382,7 +382,7 @@ export class ResourceService {
       updatedAt: new Date(),
     }).where(and(eq(tasks.id, taskId), eq(tasks.workspaceId, workspaceId), eq(tasks.version, version), isNull(tasks.deletedAt))).returning();
     if (!updated) throw new PreconditionFailedException({ title: 'Task was updated elsewhere', current: before });
-    await this.activityService.append(this.database.db, { workspaceId, subjectType: 'task', subjectId: taskId, action: 'human_review_updated', actorUserId: user.id, before: { reviewStatus: before.reviewStatus }, after: { reviewStatus: updated.reviewStatus, reviewNote: input.reviewNote } });
+    await this.activityService.append(this.database.db, { workspaceId, subjectType: 'task', subjectId: taskId, action: 'human_review_updated', actor: user, before: { reviewStatus: before.reviewStatus }, after: { reviewStatus: updated.reviewStatus, reviewNote: input.reviewNote } });
     return updated;
   }
 
@@ -430,7 +430,7 @@ export class ResourceService {
     await this.task(workspaceId, taskId);
     const [max] = await this.database.db.select({ position: sql<number>`coalesce(max(${checklistItems.position}), -1)` }).from(checklistItems).where(and(eq(checklistItems.taskId, taskId), eq(checklistItems.kind, input.kind)));
     const [item] = await this.database.db.insert(checklistItems).values({ taskId, kind: input.kind, text: input.text, position: input.position ?? (max?.position ?? -1) + 1 }).returning();
-    await this.activityService.append(this.database.db, { workspaceId, subjectType: 'checklist_item', subjectId: item!.id, action: 'created', actorUserId: user.id, after: { taskId, kind: item!.kind, text: item!.text } });
+    await this.activityService.append(this.database.db, { workspaceId, subjectType: 'checklist_item', subjectId: item!.id, action: 'created', actor: user, after: { taskId, kind: item!.kind, text: item!.text } });
     return item;
   }
 
@@ -439,7 +439,7 @@ export class ResourceService {
     const [before] = await this.database.db.select({ item: checklistItems, task: tasks }).from(checklistItems).innerJoin(tasks, eq(checklistItems.taskId, tasks.id)).where(and(eq(checklistItems.id, itemId), eq(tasks.workspaceId, workspaceId))).limit(1);
     if (!before) throw new NotFoundException('Checklist item not found.');
     const [updated] = await this.database.db.update(checklistItems).set({ ...input, updatedAt: new Date() }).where(eq(checklistItems.id, itemId)).returning();
-    await this.activityService.append(this.database.db, { workspaceId, subjectType: 'checklist_item', subjectId: itemId, action: 'updated', actorUserId: user.id, before: selectChanged(before.item, input), after: selectChanged(updated!, input) });
+    await this.activityService.append(this.database.db, { workspaceId, subjectType: 'checklist_item', subjectId: itemId, action: 'updated', actor: user, before: selectChanged(before.item, input), after: selectChanged(updated!, input) });
     return updated;
   }
 
@@ -448,7 +448,7 @@ export class ResourceService {
     await this.flow(workspaceId, flowId);
     const [max] = await this.database.db.select({ position: sql<number>`coalesce(max(${convergenceCriteria.position}), -1)` }).from(convergenceCriteria).where(eq(convergenceCriteria.flowId, flowId));
     const [criterion] = await this.database.db.insert(convergenceCriteria).values({ flowId, text: input.text, position: input.position ?? (max?.position ?? -1) + 1 }).returning();
-    await this.activityService.append(this.database.db, { workspaceId, subjectType: 'flow', subjectId: flowId, action: 'convergence_criterion_added', actorUserId: user.id, after: { criterionId: criterion!.id, text: criterion!.text } });
+    await this.activityService.append(this.database.db, { workspaceId, subjectType: 'flow', subjectId: flowId, action: 'convergence_criterion_added', actor: user, after: { criterionId: criterion!.id, text: criterion!.text } });
     return criterion;
   }
 
@@ -457,7 +457,7 @@ export class ResourceService {
     const [before] = await this.database.db.select({ criterion: convergenceCriteria, flow: flows }).from(convergenceCriteria).innerJoin(flows, eq(convergenceCriteria.flowId, flows.id)).where(and(eq(convergenceCriteria.id, criterionId), eq(flows.workspaceId, workspaceId))).limit(1);
     if (!before) throw new NotFoundException('Convergence criterion not found.');
     const [updated] = await this.database.db.update(convergenceCriteria).set({ ...input, updatedAt: new Date() }).where(eq(convergenceCriteria.id, criterionId)).returning();
-    await this.activityService.append(this.database.db, { workspaceId, subjectType: 'flow', subjectId: before.flow.id, action: 'convergence_criterion_updated', actorUserId: user.id, before: selectChanged(before.criterion, input), after: selectChanged(updated!, input) });
+    await this.activityService.append(this.database.db, { workspaceId, subjectType: 'flow', subjectId: before.flow.id, action: 'convergence_criterion_updated', actor: user, before: selectChanged(before.criterion, input), after: selectChanged(updated!, input) });
     return updated;
   }
 
@@ -470,7 +470,7 @@ export class ResourceService {
     await this.workspaces.requireMembership(workspaceId, user, 'admin');
     try {
       const [label] = await this.database.db.insert(labels).values({ workspaceId, ...input }).returning();
-      await this.activityService.append(this.database.db, { workspaceId, subjectType: 'label', subjectId: label!.id, action: 'created', actorUserId: user.id, after: { name: label!.name } });
+      await this.activityService.append(this.database.db, { workspaceId, subjectType: 'label', subjectId: label!.id, action: 'created', actor: user, after: { name: label!.name } });
       return label;
     } catch (error) {
       throw new ConflictException('A label with that name already exists in this workspace.', { cause: error });
@@ -483,7 +483,7 @@ export class ResourceService {
     if (!before) throw new NotFoundException('Label not found.');
     const [updated] = await this.database.db.update(labels).set({ ...input, version: sql`${labels.version} + 1`, updatedAt: new Date() }).where(and(eq(labels.id, labelId), eq(labels.version, version))).returning();
     if (!updated) throw new PreconditionFailedException({ title: 'Label was updated elsewhere', current: before });
-    await this.activityService.append(this.database.db, { workspaceId, subjectType: 'label', subjectId: labelId, action: 'updated', actorUserId: user.id, before: selectChanged(before, input), after: selectChanged(updated, input) });
+    await this.activityService.append(this.database.db, { workspaceId, subjectType: 'label', subjectId: labelId, action: 'updated', actor: user, before: selectChanged(before, input), after: selectChanged(updated, input) });
     return updated;
   }
 
@@ -498,7 +498,7 @@ export class ResourceService {
     const existing = await this.labelsFor(subject, subjectId);
     if (existing.some((entry) => entry.id === labelId)) return { label, assigned: false };
     await this.database.db.insert(labelAssignments).values(values);
-    await this.activityService.append(this.database.db, { workspaceId, subjectType: subject, subjectId, action: 'label_added', actorUserId: user.id, after: { labelId } });
+    await this.activityService.append(this.database.db, { workspaceId, subjectType: subject, subjectId, action: 'label_added', actor: user, after: { labelId } });
     return { label, assigned: true };
   }
 
@@ -506,7 +506,7 @@ export class ResourceService {
     await this.workspaces.requireMembership(workspaceId, user);
     const column = subject === 'project' ? labelAssignments.projectId : subject === 'flow' ? labelAssignments.flowId : labelAssignments.taskId;
     await this.database.db.delete(labelAssignments).where(and(eq(labelAssignments.labelId, labelId), eq(column, subjectId)));
-    await this.activityService.append(this.database.db, { workspaceId, subjectType: subject, subjectId, action: 'label_removed', actorUserId: user.id, before: { labelId } });
+    await this.activityService.append(this.database.db, { workspaceId, subjectType: subject, subjectId, action: 'label_removed', actor: user, before: { labelId } });
     return { ok: true };
   }
 
@@ -519,7 +519,7 @@ export class ResourceService {
     await this.workspaces.requireMembership(workspaceId, user);
     if (subject === 'task') await this.task(workspaceId, subjectId); else await this.flow(workspaceId, subjectId);
     const [comment] = await this.database.db.insert(comments).values({ workspaceId, subject, taskId: subject === 'task' ? subjectId : null, flowId: subject === 'flow' ? subjectId : null, body: input.body, authorUserId: user.id }).returning();
-    await this.activityService.append(this.database.db, { workspaceId, subjectType: 'comment', subjectId: comment!.id, action: 'created', actorUserId: user.id, after: { subject, parentId: subjectId } });
+    await this.activityService.append(this.database.db, { workspaceId, subjectType: 'comment', subjectId: comment!.id, action: 'created', actor: user, after: { subject, parentId: subjectId } });
     return comment;
   }
 
@@ -530,7 +530,7 @@ export class ResourceService {
     if (before.authorUserId !== user.id) throw new ConflictException('Only the comment author may edit a comment.');
     const [updated] = await this.database.db.update(comments).set({ body, version: sql`${comments.version} + 1`, updatedAt: new Date() }).where(and(eq(comments.id, commentId), eq(comments.version, version))).returning();
     if (!updated) throw new PreconditionFailedException({ title: 'Comment was updated elsewhere', current: before });
-    await this.activityService.append(this.database.db, { workspaceId, subjectType: 'comment', subjectId: commentId, action: 'edited', actorUserId: user.id, before: { body: before.body }, after: { body } });
+    await this.activityService.append(this.database.db, { workspaceId, subjectType: 'comment', subjectId: commentId, action: 'edited', actor: user, before: { body: before.body }, after: { body } });
     return updated;
   }
 
@@ -554,7 +554,7 @@ export class ResourceService {
         }
         try {
           const [relation] = await tx.insert(taskRelations).values({ workspaceId, sourceTaskId, targetTaskId, type: input.type as 'blocks' | 'related' | 'duplicate_of', explanation: input.explanation, createdByUserId: user.id }).returning();
-          await this.activityService.append(tx, { workspaceId, subjectType: 'task_relation', subjectId: relation!.id, action: 'created', actorUserId: user.id, after: { sourceTaskId, targetTaskId, type: input.type } });
+          await this.activityService.append(tx, { workspaceId, subjectType: 'task_relation', subjectId: relation!.id, action: 'created', actor: user, after: { sourceTaskId, targetTaskId, type: input.type } });
           return relation;
         } catch (error) {
           throw new ConflictException('That task relation already exists.', { cause: error });
@@ -570,7 +570,7 @@ export class ResourceService {
       }
       try {
         const [relation] = await tx.insert(flowRelations).values({ workspaceId, sourceFlowId, targetFlowId, type: input.type as 'blocks' | 'related' | 'replaces' | 'merged_into', explanation: input.explanation, createdByUserId: user.id }).returning();
-        await this.activityService.append(tx, { workspaceId, subjectType: 'flow_relation', subjectId: relation!.id, action: 'created', actorUserId: user.id, after: { sourceFlowId, targetFlowId, type: input.type } });
+        await this.activityService.append(tx, { workspaceId, subjectType: 'flow_relation', subjectId: relation!.id, action: 'created', actor: user, after: { sourceFlowId, targetFlowId, type: input.type } });
         return relation;
       } catch (error) {
         throw new ConflictException('That flow relation already exists.', { cause: error });
@@ -600,7 +600,7 @@ export class ResourceService {
     const deletedRows: any = await this.database.db.delete(table as any).where(and(eq((table as any).id, relationId), eq((table as any).workspaceId, workspaceId))).returning();
     const relation = deletedRows[0];
     if (!relation) throw new NotFoundException('Relation not found.');
-    await this.activityService.append(this.database.db, { workspaceId, subjectType: kind === 'task' ? 'task_relation' : 'flow_relation', subjectId: relationId, action: 'removed', actorUserId: user.id, before: relation });
+    await this.activityService.append(this.database.db, { workspaceId, subjectType: kind === 'task' ? 'task_relation' : 'flow_relation', subjectId: relationId, action: 'removed', actor: user, before: relation });
     return { ok: true };
   }
 
@@ -612,7 +612,7 @@ export class ResourceService {
     if (!before) throw new NotFoundException(`${kind} not found.`);
     const [deleted] = await (this.database.db as any).update(table).set({ deletedAt: new Date(), deletedByUserId: user.id, version: sql`${(table as any).version} + 1`, updatedAt: new Date() }).where(and(eq((table as any).id, id), eq((table as any).version, version))).returning();
     if (!deleted) throw new PreconditionFailedException({ title: `${kind} was updated elsewhere`, current: before });
-    await this.activityService.append(this.database.db, { workspaceId, subjectType: kind, subjectId: id, action: 'soft_deleted', actorUserId: user.id, before: { name: before.name ?? before.title ?? before.id } });
+    await this.activityService.append(this.database.db, { workspaceId, subjectType: kind, subjectId: id, action: 'soft_deleted', actor: user, before: { name: before.name ?? before.title ?? before.id } });
     return deleted;
   }
 
@@ -624,7 +624,7 @@ export class ResourceService {
     if (!before || !before.deletedAt) throw new NotFoundException(`Deleted ${kind} not found.`);
     const [restored] = await (this.database.db as any).update(table).set({ deletedAt: null, deletedByUserId: null, version: sql`${(table as any).version} + 1`, updatedAt: new Date() }).where(and(eq((table as any).id, id), eq((table as any).version, version))).returning();
     if (!restored) throw new PreconditionFailedException({ title: `${kind} was updated elsewhere`, current: before });
-    await this.activityService.append(this.database.db, { workspaceId, subjectType: kind, subjectId: id, action: 'restored', actorUserId: user.id });
+    await this.activityService.append(this.database.db, { workspaceId, subjectType: kind, subjectId: id, action: 'restored', actor: user });
     return restored;
   }
 

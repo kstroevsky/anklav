@@ -19,5 +19,5 @@ export default defineConfig({
       workbox: { globPatterns: ['**/*.{js,css,html,svg,png,ico}'] },
     }),
   ],
-  server: { proxy: { '/api': 'http://localhost:3000' } },
+  server: { proxy: { '/api': 'http://localhost:3000', '/mcp': 'http://localhost:3000', '/oauth': 'http://localhost:3000', '/.well-known': 'http://localhost:3000' } },
 });

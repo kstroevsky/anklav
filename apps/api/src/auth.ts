@@ -16,6 +16,8 @@ export interface AuthUser {
   displayName: string;
   instanceRole: 'user' | 'instance_admin';
   theme: 'system' | 'light' | 'dark';
+  /** Present only for OAuth-authenticated MCP mutations; never persisted in a session. */
+  mcpClient?: { id: string; name: string };
 }
 
 export type AuthedRequest = FastifyRequest & { user: AuthUser; sessionId: string; csrfToken: string };
@@ -42,7 +44,7 @@ export class AuthService {
   private cookieOptions() {
     return {
       httpOnly: true,
-      secure: process.env.COOKIE_SECURE === 'true',
+      secure: process.env.COOKIE_SECURE === 'true' || (process.env.APP_ORIGIN ?? '').startsWith('https://'),
       sameSite: 'lax' as const,
       path: '/',
       maxAge: 60 * 60 * 24 * 30,
