@@ -1,0 +1,17 @@
+packages:
+  - apps/*
+  - packages/*
+
+onlyBuiltDependencies:
+  - argon2
+  - esbuild
+
+ignoredBuiltDependencies:
+  - '@scarf/scarf'
+
+strictDepBuilds: false
+confirmModulesPurge: false
+allowBuilds:
+  '@scarf/scarf': set this to true or false
+  argon2: set this to true or false
+  esbuild: set this to true or false

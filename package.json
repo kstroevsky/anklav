@@ -1,0 +1,19 @@
+{
+  "name": "anklav",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.6.0",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @anklav/api --filter @anklav/web dev",
+    "build": "pnpm --filter @anklav/api build && pnpm --filter @anklav/web build",
+    "test": "pnpm --filter @anklav/api test && pnpm --filter @anklav/web test",
+    "lint": "pnpm --filter @anklav/api lint && pnpm --filter @anklav/web lint",
+    "db:generate": "pnpm --filter @anklav/api db:generate",
+    "db:migrate": "pnpm --filter @anklav/api db:migrate",
+    "generate:api": "pnpm --filter @anklav/api openapi:write && pnpm --filter @anklav/api-client generate"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "prettier": "^3.8.2"
+  }
+}
