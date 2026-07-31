@@ -1,0 +1,736 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/v1/auth/setup-status": {
+      "get": {
+        "operationId": "AuthController_setupStatus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/setup": {
+      "post": {
+        "operationId": "AuthController_setup",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "operationId": "AuthController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/password": {
+      "patch": {
+        "operationId": "AuthController_changePassword",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/accounts": {
+      "get": {
+        "operationId": "AccountController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Account"
+        ]
+      },
+      "post": {
+        "operationId": "AccountController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/v1/accounts/{userId}/password": {
+      "patch": {
+        "operationId": "AccountController_resetPassword",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/v1/workspaces": {
+      "get": {
+        "operationId": "WorkspaceController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      },
+      "post": {
+        "operationId": "WorkspaceController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}": {
+      "patch": {
+        "operationId": "WorkspaceController_update",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/members": {
+      "get": {
+        "operationId": "WorkspaceController_members",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      },
+      "post": {
+        "operationId": "WorkspaceController_addMember",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/members/{membershipId}": {
+      "patch": {
+        "operationId": "WorkspaceController_updateMember",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/workflows": {
+      "get": {
+        "operationId": "WorkspaceController_workflows",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/workflows/{entityType}": {
+      "post": {
+        "operationId": "WorkspaceController_createWorkflow",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/workflows/{stateId}": {
+      "patch": {
+        "operationId": "WorkspaceController_updateWorkflow",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/workflows/{stateId}/archive": {
+      "post": {
+        "operationId": "WorkspaceController_archiveWorkflow",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/projects": {
+      "get": {
+        "operationId": "WorkspaceController_projects",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      },
+      "post": {
+        "operationId": "WorkspaceController_createProject",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}": {
+      "get": {
+        "operationId": "WorkspaceController_project",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      },
+      "patch": {
+        "operationId": "WorkspaceController_updateProject",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/flows": {
+      "get": {
+        "operationId": "WorkspaceController_flows",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      },
+      "post": {
+        "operationId": "WorkspaceController_createFlow",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/flows/{flowId}": {
+      "get": {
+        "operationId": "WorkspaceController_flow",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      },
+      "patch": {
+        "operationId": "WorkspaceController_updateFlow",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/tasks": {
+      "get": {
+        "operationId": "WorkspaceController_tasks",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      },
+      "post": {
+        "operationId": "WorkspaceController_createTask",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/tasks/{taskId}": {
+      "get": {
+        "operationId": "WorkspaceController_task",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      },
+      "patch": {
+        "operationId": "WorkspaceController_updateTask",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/tasks/{taskId}/transition-preview": {
+      "get": {
+        "operationId": "WorkspaceController_taskTransition",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/tasks/{taskId}/review": {
+      "patch": {
+        "operationId": "WorkspaceController_updateReview",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/flows/{flowId}/transition-preview": {
+      "get": {
+        "operationId": "WorkspaceController_flowTransition",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/tasks/{taskId}/checklists": {
+      "post": {
+        "operationId": "WorkspaceController_createChecklist",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/checklists/{itemId}": {
+      "patch": {
+        "operationId": "WorkspaceController_updateChecklist",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/flows/{flowId}/criteria": {
+      "post": {
+        "operationId": "WorkspaceController_createCriterion",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/criteria/{criterionId}": {
+      "patch": {
+        "operationId": "WorkspaceController_updateCriterion",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/labels": {
+      "get": {
+        "operationId": "WorkspaceController_labels",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      },
+      "post": {
+        "operationId": "WorkspaceController_createLabel",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/labels/{labelId}": {
+      "patch": {
+        "operationId": "WorkspaceController_updateLabel",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/{subject}/{subjectId}/labels/{labelId}": {
+      "post": {
+        "operationId": "WorkspaceController_assignLabel",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      },
+      "delete": {
+        "operationId": "WorkspaceController_unassignLabel",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/{subject}/{subjectId}/comments": {
+      "post": {
+        "operationId": "WorkspaceController_createComment",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/comments/{commentId}": {
+      "patch": {
+        "operationId": "WorkspaceController_updateComment",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/{kind}/relations": {
+      "post": {
+        "operationId": "WorkspaceController_createRelation",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/{kind}/relations/{relationId}": {
+      "delete": {
+        "operationId": "WorkspaceController_deleteRelation",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/{kind}/{id}": {
+      "delete": {
+        "operationId": "WorkspaceController_deleteItem",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/{kind}/{id}/restore": {
+      "post": {
+        "operationId": "WorkspaceController_restoreItem",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/activity": {
+      "get": {
+        "operationId": "WorkspaceController_activity",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/changes": {
+      "get": {
+        "operationId": "WorkspaceController_changes",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/search": {
+      "get": {
+        "operationId": "WorkspaceController_search",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/trash": {
+      "get": {
+        "operationId": "WorkspaceController_trash",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Anklav API",
+    "description": "",
+    "version": "v1",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "schemas": {}
+  }
+}
