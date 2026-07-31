@@ -1,9 +1,10 @@
-export type User = { id: string; email: string; displayName: string; instanceRole: 'user' | 'instance_admin' };
+export type User = { id: string; email: string; displayName: string; instanceRole: 'user' | 'instance_admin'; theme: 'system' | 'light' | 'dark' };
 export type Workspace = { id: string; name: string; slug: string; description: string; role: 'owner' | 'admin' | 'member'; version: number };
-export type WorkflowState = { id: string; name: string; color: string; entityType: 'task' | 'flow'; taskSemantic?: string | null; flowSemantic?: string | null; position: number; version: number; isInitial: boolean };
+export type WorkflowState = { id: string; name: string; color: string; entityType: 'task' | 'flow'; taskSemantic?: string | null; flowSemantic?: string | null; position: number; version: number; isInitial: boolean; archivedAt?: string | null };
 export type Project = { id: string; name: string; description: string; status: string; priority: string; health: string; currentFocus: string; version: number; updatedAt: string };
 export type Flow = { id: string; name: string; purpose: string; priority: string; health: string; workflowStateId: string; currentFocus: string; nextRecommendedAction: string; version: number; updatedAt: string };
 export type Task = { id: string; title: string; description: string; projectId: string; workflowStateId: string; priority: string; dueDate: string | null; version: number; updatedAt: string; humanReviewRequired: boolean; reviewStatus: string };
+export type Page<T> = { items: T[]; nextCursor: string | null };
 
 let csrfToken = '';
 export function setCsrfToken(value: string) { csrfToken = value; }
