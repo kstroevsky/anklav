@@ -17,7 +17,7 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
-    command: ["pnpm", "db:migrate"]
+    command: ["node", "dist/src/db/migrate.js"]
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-anklav}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-anklav}
     depends_on:

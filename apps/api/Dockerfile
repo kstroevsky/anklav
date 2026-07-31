@@ -21,4 +21,4 @@ COPY --from=build /app/apps/api/src ./apps/api/src
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 WORKDIR /app/apps/api
 EXPOSE 3000
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/src/main.js"]
