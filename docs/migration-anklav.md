@@ -1,4 +1,4 @@
-# Project-control migration (Phase 0–1)
+# Project-control migration (Phase 1.1 safety gate)
 
 Anklav consumes the checked neutral bundle from `project-control/migration/anklav/v1`; it does not copy, modify, or generate files inside that directory. The supported contract is bundle schema `1.2.0`.
 
@@ -12,7 +12,7 @@ pnpm import:anklav plan \
   --require-source-mappings
 ```
 
-The plan prints an overrides template. Save it outside the bundle. `apply` refuses to run until it contains an explicit source-repository visibility decision, dispositions for all project-control tasks, and decisions for human-review milestone classifications.
+The target workspace must already exist. The importer never creates a workspace. The plan prints an overrides template; save it outside the bundle. `apply` refuses to run until it contains an explicit source-repository visibility decision, dispositions for all project-control tasks, and decisions for human-review milestone classifications.
 
 ```bash
 pnpm import:anklav apply \
@@ -24,7 +24,27 @@ pnpm import:anklav apply \
   --require-source-mappings
 ```
 
-`apply` and `resume` are idempotent. Each target and its external-object mapping are written in one database transaction. A repeated source key whose payload hash changes becomes a drift conflict; Anklav never overwrites the target silently.
+The bundle checksum plus a canonical hash of the overrides is the immutable identity of an execution. `apply`, `resume`, `verify`, and `rollback` reject different overrides. A completed execution is a no-op only for the identical decision set. A *planned, not-yet-applied* execution may be explicitly amended and applied by ID:
+
+```bash
+pnpm import:anklav amend \
+  --bundle /absolute/path/to/project-control/migration/anklav/v1 \
+  --workspace 'Personal R&D' \
+  --overrides /secure/path/revised-anklav-overrides.json \
+  --prior-batch <prior-batch-uuid> \
+  --actor <anklav-user-uuid>
+
+pnpm import:anklav apply \
+  --bundle /absolute/path/to/project-control/migration/anklav/v1 \
+  --workspace 'Personal R&D' \
+  --overrides /secure/path/revised-anklav-overrides.json \
+  --amendment-batch <amendment-batch-uuid> \
+  --actor <anklav-user-uuid>
+```
+
+Each target and its external-object mapping are written in one database transaction. A repeated source key whose payload hash changes becomes a drift conflict; Anklav never overwrites the target silently. A rolled-back batch retires its mappings from matching and a clean reapplication uses a new batch, restoring only objects that batch had created.
+
+For a batch that has already written mappings, do not amend decisions in place. Roll it back under the guarded rules and then apply the desired override set as a clean new batch; this prevents a changed disposition from reusing an old mapping outcome.
 
 Verification writes only outside the bundle:
 
@@ -39,8 +59,12 @@ pnpm import:anklav verify \
 
 The command produces both `anklav-import-verification.json` and `anklav-import-verification.json.sha256`. They are intentionally ignored by Git because they can contain operational source URLs. The importer rejects output beneath the immutable bundle, path traversal, symlinks, oversized files, and oversized NDJSON records.
 
-Rollback is scoped to objects that the recorded import batch created. It never deletes matched pre-existing objects. If a created object’s version changed after import, rollback refuses unless a human supplies `--guarded-override`.
+The report has authoritative top-level `passed`, `checks`, `failures`, `warnings`, `outcomes`, `resolvedConflicts`, and `remainingHumanDecisions` fields. A failed attempt is stored only as `verification_failed`; it does not update source mappings’ `lastVerifiedAt`, create a successful verification record, or write a `verified` activity. REST callers cannot choose a filesystem path: the server derives the report file beneath its configured verification directory.
 
-Git-backed artifact candidates are link-only: the importer records repository/path provenance but does not copy repository content. A GitHub App connection may later verify the repository, commit SHA, and content hash. Imported Linear documents are `legacy_source` candidate artifacts and do not supersede Git-backed material.
+Rollback is scoped to objects that the recorded import batch created, including the automatically created Anklav project. It never deletes matched pre-existing objects. If a created object’s version changed after import, rollback refuses unless a human supplies `--guarded-override`; soft deletion increments the target version and migration history remains intact.
+
+Git-backed artifact candidates are link-only: the importer records repository/path provenance but does not copy repository content. Verification is server-side through the existing GitHub App: it checks workspace repository access, reads the specified path at the immutable commit SHA, hashes its content, and records success or a missing/changed-file result. Neither REST callers nor agents can self-assert `verified` or promote an artifact to canonical; canonical promotion is an admin gate after server verification. Imported Linear documents are `legacy_source` candidate artifacts and do not supersede Git-backed material.
+
+Task import keeps requirements, performed verification, completion evidence, non-goals, limitations, and follow-up work distinct. Current source evidence is not silently treated as completion evidence. Deterministic context packs include task relations/blockers, task-specific milestones, import provenance and original source URLs, and select the latest handoff by timestamp.
 
 This phase deliberately excludes raw-session ingestion, RAG, embeddings, work attempts, and autonomous workflows. Context packs are deterministic structured data with verified/canonical artifact citations; semantic material is not included.

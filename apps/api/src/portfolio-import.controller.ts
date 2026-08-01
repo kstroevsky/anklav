@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { join, resolve } from 'node:path';
 import { z } from 'zod';
 import { type AuthUser, type AuthedRequest, SessionGuard } from './auth';
 import { parseBody } from './common/http';
@@ -9,6 +10,7 @@ const overrides = z.object({
   sourceRepositoryVisibility: z.enum(['accepted_public_disclosure', 'repository_private']).optional(),
   projectControlTasks: z.record(z.string(), z.object({ disposition: z.enum(['map_to_anklav', 'archive_as_source_only', 'cancel_as_superseded']), targetProjectRef: z.string().optional() })).optional(),
   milestoneClassifications: z.record(z.string(), z.enum(['anklav_flow', 'anklav_milestone', 'archive_candidate'])).optional(),
+  sourceFlowDispositions: z.record(z.string(), z.enum(['retain_as_active_flow', 'archive_as_source_only'])).optional(),
   legacyLabels: z.record(z.string(), z.enum(['target_label', 'provenance_only'])).optional(),
 }).optional();
 
@@ -26,6 +28,11 @@ export class PortfolioImportController {
     return configured;
   }
 
+  private verificationReportPath(): string {
+    const root = resolve(process.env.ANKLAV_MIGRATION_VERIFICATION_DIR ?? join(process.cwd(), 'migration/anklav/verification'));
+    return join(root, 'anklav-import-verification.json');
+  }
+
   private async admin(workspaceId: string, request: AuthedRequest) { await this.workspaces.requireMembership(workspaceId, user(request), 'admin'); }
 
   @Get('plan')
@@ -37,26 +44,34 @@ export class PortfolioImportController {
   @Post('apply')
   async apply(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Body() body: unknown) {
     await this.admin(workspaceId, request);
-    return this.imports.apply({ bundle: this.bundleRoot(), workspace: workspaceId, overrides: parseBody(overrides, body) as ImportOverrides, verifyChecksums: true, requireSourceMappings: true }, user(request));
+    const input = parseBody(z.object({ overrides, amendmentBatchId: z.string().uuid().optional() }), body);
+    return this.imports.apply({ bundle: this.bundleRoot(), workspace: workspaceId, overrides: input.overrides as ImportOverrides, amendmentBatchId: input.amendmentBatchId, verifyChecksums: true, requireSourceMappings: true }, user(request));
   }
 
   @Post('resume')
   async resume(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Body() body: unknown) {
     await this.admin(workspaceId, request);
-    return this.imports.resume({ bundle: this.bundleRoot(), workspace: workspaceId, overrides: parseBody(overrides, body) as ImportOverrides, verifyChecksums: true, requireSourceMappings: true }, user(request));
+    const input = parseBody(z.object({ overrides, amendmentBatchId: z.string().uuid().optional() }), body);
+    return this.imports.resume({ bundle: this.bundleRoot(), workspace: workspaceId, overrides: input.overrides as ImportOverrides, amendmentBatchId: input.amendmentBatchId, verifyChecksums: true, requireSourceMappings: true }, user(request));
   }
 
   @Post('verify')
   async verify(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Body() body: unknown) {
     await this.admin(workspaceId, request);
-    const input = parseBody(z.object({ verificationReport: z.string().min(1), overrides }), body);
-    return this.imports.verify({ bundle: this.bundleRoot(), workspace: workspaceId, overrides: input.overrides as ImportOverrides, verifyChecksums: true, requireSourceMappings: true }, user(request), input.verificationReport);
+    const input = parseBody(z.object({ overrides, amendmentBatchId: z.string().uuid().optional() }), body);
+    return this.imports.verify({ bundle: this.bundleRoot(), workspace: workspaceId, overrides: input.overrides as ImportOverrides, amendmentBatchId: input.amendmentBatchId, verifyChecksums: true, requireSourceMappings: true }, user(request), this.verificationReportPath());
+  }
+
+  @Post('amend/:priorBatchId')
+  async amend(@Param('workspaceId') workspaceId: string, @Param('priorBatchId') priorBatchId: string, @Req() request: AuthedRequest, @Body() body: unknown) {
+    await this.admin(workspaceId, request);
+    return this.imports.amend({ bundle: this.bundleRoot(), workspace: workspaceId, overrides: parseBody(overrides, body) as ImportOverrides, verifyChecksums: true, requireSourceMappings: true }, user(request), priorBatchId);
   }
 
   @Post('rollback')
   async rollback(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Body() body: unknown) {
     await this.admin(workspaceId, request);
-    const input = parseBody(z.object({ guardedOverride: z.boolean().optional().default(false) }), body);
-    return this.imports.rollback({ bundle: this.bundleRoot(), workspace: workspaceId, verifyChecksums: true, requireSourceMappings: true }, user(request), input.guardedOverride);
+    const input = parseBody(z.object({ guardedOverride: z.boolean().optional().default(false), overrides, amendmentBatchId: z.string().uuid().optional() }), body);
+    return this.imports.rollback({ bundle: this.bundleRoot(), workspace: workspaceId, overrides: input.overrides as ImportOverrides, amendmentBatchId: input.amendmentBatchId, verifyChecksums: true, requireSourceMappings: true }, user(request), input.guardedOverride);
   }
 }

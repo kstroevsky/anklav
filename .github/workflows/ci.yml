@@ -33,9 +33,11 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - uses: gitleaks/gitleaks-action@v2
       - run: pnpm lint
       - run: pnpm build
-      - run: pnpm test
       - run: pnpm db:migrate
+      - run: pnpm test
+      - run: pnpm --filter @anklav/api test:integration
       - run: pnpm generate:api
       - run: git diff --exit-code -- apps/api/openapi.json packages/api-client/src/schema.ts

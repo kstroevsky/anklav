@@ -248,6 +248,29 @@ export class GitHubService implements OnModuleInit, OnModuleDestroy {
     return { identifier: task.identifier, branch: taskBranchName(task.identifier, task.title, connection?.branchTemplate ?? '{identifier}-{slug}') };
   }
 
+  /**
+   * Server-side, installation-authenticated file retrieval for knowledge artifact
+   * verification. Callers supply an immutable commit SHA; they never supply proof.
+   */
+  async fetchRepositoryFile(workspaceId: string, user: AuthUser, input: { githubRepositoryId?: string | null; repositoryFullName: string; path: string; commitSha: string }) {
+    this.ensureEnabled();
+    await this.workspaces.requireMembership(workspaceId, user);
+    if (!/^[^/\s]+\/[^/\s]+$/.test(input.repositoryFullName) || !input.commitSha.trim() || input.path.startsWith('/') || input.path.split('/').includes('..')) throw new BadRequestException('Repository artifact reference is invalid.');
+    const connection = await this.connection(workspaceId);
+    const [repository] = await this.database.db.select().from(githubRepositories).where(and(
+      eq(githubRepositories.connectionId, connection.id),
+      input.githubRepositoryId ? eq(githubRepositories.id, input.githubRepositoryId) : eq(githubRepositories.fullName, input.repositoryFullName),
+    )).limit(1);
+    if (!repository || repository.fullName !== input.repositoryFullName || !repository.installed) throw new BadRequestException('Repository is not installed for this workspace GitHub App connection.');
+    const encodedPath = input.path.split('/').map(encodeURIComponent).join('/');
+    const response = await this.githubFetch(connection, `/repos/${repository.fullName}/contents/${encodedPath}?ref=${encodeURIComponent(input.commitSha)}`);
+    if (response.status === 404) return { found: false as const, repositoryId: repository.id, message: 'The requested path does not exist at the specified commit.' };
+    if (!response.ok) throw new BadRequestException(`GitHub file verification request failed (${response.status}).`);
+    const payload = await response.json() as { type?: string; encoding?: string; content?: string; sha?: string; path?: string };
+    if (payload.type !== 'file' || payload.encoding !== 'base64' || typeof payload.content !== 'string') throw new BadRequestException('The requested repository reference is not a file.');
+    return { found: true as const, repositoryId: repository.id, path: payload.path ?? input.path, blobSha: payload.sha ?? null, content: Buffer.from(payload.content.replace(/\s/g, ''), 'base64') };
+  }
+
   async createIssue(workspaceId: string, user: AuthUser, taskRef: string, body: unknown) {
     this.ensureEnabled(); await this.workspaces.requireMembership(workspaceId, user); const input = parseBody(issueInput, body); const task = await this.taskForRef(workspaceId, taskRef);
     const [repository] = await this.database.db.select().from(githubRepositories).where(eq(githubRepositories.id, input.repositoryId)).limit(1); if (!repository) throw new BadRequestException('Repository not found.');

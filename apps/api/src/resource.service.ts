@@ -112,8 +112,10 @@ export const taskInput = z.object({
   relatedFlowIds: z.array(z.string().uuid()).max(100).optional(),
   humanReviewRequired: z.boolean().optional(),
   reviewerMembershipId: optionalId,
+  verificationRequirements: markdown.optional(),
   verificationPerformed: markdown.optional(),
   completionEvidence: markdown.optional(),
+  nonGoals: markdown.optional(),
   remainingLimitations: markdown.optional(),
   followUpWork: markdown.optional(),
 });

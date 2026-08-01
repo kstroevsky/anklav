@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  AnyPgColumn,
   bigint,
   boolean,
   date,
@@ -244,11 +245,16 @@ export const tasks = pgTable('tasks', {
   reviewDecidedAt: timestamp('review_decided_at', { withTimezone: true }),
   reviewNote: text('review_note').notNull().default(''),
   verificationPerformed: text('verification_performed').notNull().default(''),
+  /** What must be verified before completion. It is not evidence that verification happened. */
+  verificationRequirements: text('verification_requirements').notNull().default(''),
   completionEvidence: text('completion_evidence').notNull().default(''),
+  /** Explicit exclusions are context, not a limitation discovered after delivery. */
+  nonGoals: text('non_goals').notNull().default(''),
   remainingLimitations: text('remaining_limitations').notNull().default(''),
   followUpWork: text('follow_up_work').notNull().default(''),
   startedAt: timestamp('started_at', { withTimezone: true }),
   completedAt: timestamp('completed_at', { withTimezone: true }),
+  cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
   version: integer('version').notNull().default(1),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
   deletedByUserId: uuid('deleted_by_user_id').references(() => users.id),
@@ -649,12 +655,15 @@ export const importBatches = pgTable('import_batches', {
   startedAt: timestamp('started_at', { withTimezone: true }),
   completedAt: timestamp('completed_at', { withTimezone: true }),
   actorUserId: uuid('actor_user_id').references(() => users.id),
-  overridesHash: text('overrides_hash'),
+  /** The checksummed bundle plus this hash is the frozen decision identity. */
+  overridesHash: text('overrides_hash').notNull(),
+  /** An explicit amendment is the only way to open a new decision set. */
+  amendsBatchId: uuid('amends_batch_id').references((): AnyPgColumn => importBatches.id),
   summary: jsonb('summary').$type<Record<string, unknown>>().notNull().default({}),
   error: text('error'),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
-}, (table) => [index('import_batch_workspace_status_index').on(table.workspaceId, table.status), uniqueIndex('import_batch_source_checksum_unique').on(table.externalSourceId, table.bundleChecksum)]);
+}, (table) => [index('import_batch_workspace_status_index').on(table.workspaceId, table.status), index('import_batch_source_checksum_index').on(table.externalSourceId, table.bundleChecksum)]);
 
 export const externalObjectMappings = pgTable('external_object_mappings', {
   id: id(),
@@ -675,9 +684,16 @@ export const externalObjectMappings = pgTable('external_object_mappings', {
   createdTarget: boolean('created_target').notNull().default(false),
   importedAt: timestamp('imported_at', { withTimezone: true }),
   lastVerifiedAt: timestamp('last_verified_at', { withTimezone: true }),
+  /** Retired mappings remain historical but cannot satisfy a reapplication. */
+  supersededAt: timestamp('superseded_at', { withTimezone: true }),
+  supersededByBatchId: uuid('superseded_by_batch_id').references(() => importBatches.id),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
-}, (table) => [uniqueIndex('external_object_mapping_workspace_source_key_unique').on(table.workspaceId, table.sourceKey), uniqueIndex('external_object_mapping_import_key_unique').on(table.importKey), index('external_object_mapping_batch_index').on(table.importBatchId), index('external_object_mapping_target_index').on(table.targetEntityType, table.targetEntityId)]);
+}, (table) => [
+  uniqueIndex('external_object_mapping_workspace_source_key_active_unique').on(table.workspaceId, table.sourceKey).where(sql`${table.supersededAt} IS NULL`),
+  uniqueIndex('external_object_mapping_import_key_active_unique').on(table.importKey).where(sql`${table.supersededAt} IS NULL`),
+  index('external_object_mapping_batch_index').on(table.importBatchId), index('external_object_mapping_target_index').on(table.targetEntityType, table.targetEntityId),
+]);
 
 export const importCreatedObjects = pgTable('import_created_objects', {
   id: id(),
@@ -713,3 +729,16 @@ export const importVerifications = pgTable('import_verifications', {
   verifiedAt: timestamp('verified_at', { withTimezone: true }).notNull().defaultNow(),
   verifiedByUserId: uuid('verified_by_user_id').references(() => users.id),
 }, (table) => [uniqueIndex('import_verification_batch_unique').on(table.importBatchId)]);
+
+/** Failed verification is auditable, but can never be mistaken for an accepted verification. */
+export const importVerificationAttempts = pgTable('import_verification_attempts', {
+  id: id(),
+  importBatchId: uuid('import_batch_id').notNull().references(() => importBatches.id),
+  reportPath: text('report_path').notNull(),
+  reportChecksum: text('report_checksum').notNull(),
+  checks: jsonb('checks').$type<Record<string, unknown>[]>().notNull().default([]),
+  failures: jsonb('failures').$type<Record<string, unknown>[]>().notNull().default([]),
+  warnings: jsonb('warnings').$type<Record<string, unknown>[]>().notNull().default([]),
+  attemptedAt: timestamp('attempted_at', { withTimezone: true }).notNull().defaultNow(),
+  attemptedByUserId: uuid('attempted_by_user_id').references(() => users.id),
+}, (table) => [index('import_verification_attempt_batch_index').on(table.importBatchId, table.attemptedAt)]);

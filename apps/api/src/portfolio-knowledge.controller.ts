@@ -15,8 +15,11 @@ const artifactInput = z.object({
   type: z.enum(['legacy_document', 'git_reference', 'research', 'specification', 'decision', 'evaluation', 'handoff', 'project_state', 'roadmap', 'agent_instructions']),
   title: z.string().trim().min(1).max(240), summary: z.string().max(50_000).optional(), nativeContent: z.string().max(500_000).nullable().optional(),
   repositoryReference: z.object({ repositoryFullName: z.string().regex(/^[^/\s]+\/[^/\s]+$/), path: z.string().min(1).max(4_000).refine((path) => !path.split('/').includes('..'), 'Repository path may not traverse upward.'), commitSha: z.string().min(7).max(128).nullable().optional(), contentHash: z.string().regex(/^[a-f0-9]{64}$/).nullable().optional(), githubRepositoryId: z.string().uuid().nullable().optional(), verificationNote: z.string().max(10_000).optional() }).nullable().optional(),
-  canonicality: z.enum(['candidate', 'canonical', 'superseded', 'rejected']).optional(), verification: z.enum(['unverified', 'verified']).optional(),
 });
+
+const artifactRevisionInput = z.object({ nativeContent: z.string().min(1).max(500_000) });
+const artifactRelationInput = z.object({ toArtifactId: z.string().uuid(), relation: z.enum(['supports', 'contradicts', 'supersedes', 'implements', 'references']) });
+const artifactDispositionInput = z.object({ disposition: z.enum(['superseded', 'rejected']) });
 
 function user(request: AuthedRequest): AuthUser { return request.user; }
 
@@ -48,6 +51,21 @@ export class PortfolioKnowledgeController {
 
   @Get('knowledge-artifacts/:artifactId')
   getArtifact(@Param('workspaceId') workspaceId: string, @Param('artifactId') artifactId: string, @Req() request: AuthedRequest) { return this.knowledge.getArtifact(workspaceId, user(request), artifactId); }
+
+  @Post('knowledge-artifacts/:artifactId/revisions')
+  addArtifactRevision(@Param('workspaceId') workspaceId: string, @Param('artifactId') artifactId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Body() body: unknown) { return this.knowledge.addArtifactRevision(workspaceId, user(request), artifactId, requireVersion(ifMatch), parseBody(artifactRevisionInput, body).nativeContent); }
+
+  @Post('knowledge-artifacts/:artifactId/relations')
+  relateArtifacts(@Param('workspaceId') workspaceId: string, @Param('artifactId') artifactId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Body() body: unknown) { const input = parseBody(artifactRelationInput, body); return this.knowledge.relateArtifacts(workspaceId, user(request), artifactId, requireVersion(ifMatch), input.toArtifactId, input.relation); }
+
+  @Post('knowledge-artifacts/:artifactId/disposition')
+  disposition(@Param('workspaceId') workspaceId: string, @Param('artifactId') artifactId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Body() body: unknown) { return this.knowledge.setArtifactDisposition(workspaceId, user(request), artifactId, requireVersion(ifMatch), parseBody(artifactDispositionInput, body).disposition); }
+
+  @Post('knowledge-artifacts/:artifactId/verify-git')
+  verifyGit(@Param('workspaceId') workspaceId: string, @Param('artifactId') artifactId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined) { return this.knowledge.verifyRepositoryArtifact(workspaceId, user(request), artifactId, requireVersion(ifMatch)); }
+
+  @Post('knowledge-artifacts/:artifactId/promote-canonical')
+  promoteCanonical(@Param('workspaceId') workspaceId: string, @Param('artifactId') artifactId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined) { return this.knowledge.promoteArtifactCanonical(workspaceId, user(request), artifactId, requireVersion(ifMatch)); }
 
   @Get('tasks/:taskId/context-pack')
   contextPack(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Req() request: AuthedRequest) { return this.knowledge.getTaskContextPack(workspaceId, user(request), taskId); }
