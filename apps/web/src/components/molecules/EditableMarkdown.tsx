@@ -1,0 +1,4 @@
+import { useEffect, useState } from 'react';
+import { Markdown } from './Markdown';
+
+export function EditableMarkdown({ title, value, empty = 'Add context.', onSave }: { title: string; value: string; empty?: string; onSave: (value: string) => void }) { const [editing, setEditing] = useState(false); const [draft, setDraft] = useState(value); useEffect(() => setDraft(value), [value]); return <section><header className="section-header"><h3>{title}</h3><button className="text-button" onClick={() => editing ? (onSave(draft), setEditing(false)) : setEditing(true)}>{editing ? 'Save' : 'Edit'}</button></header>{editing ? <textarea autoFocus value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={empty} /> : <Markdown value={value} />}{!editing && !value && <p className="muted">{empty}</p>}</section>; }

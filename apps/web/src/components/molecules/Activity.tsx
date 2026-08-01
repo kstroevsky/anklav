@@ -1,0 +1,3 @@
+import { humanize, relativeTime } from '../../utils/formatting';
+
+export function Activity({ events }: { events: any[] }) { return <section><h3>Activity</h3>{events.length ? <ol className="activity">{events.slice(0, 20).map((event) => <li key={event.id}><div><strong>{event.action.replaceAll('_', ' ')}</strong>{event.actorName && <span className="activity-actor">by {event.actorName}</span>}{Object.keys(event.after ?? {}).length > 0 && <small className="activity-change">{Object.entries(event.after).map(([key, value]) => `${humanize(key)}: ${String(value)}`).join(' · ')}</small>}</div><small>{relativeTime(event.createdAt)}</small></li>)}</ol> : <p className="muted">No activity recorded yet.</p>}</section>; }
