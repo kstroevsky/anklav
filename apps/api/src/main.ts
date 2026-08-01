@@ -10,7 +10,7 @@ import { AppModule } from './app.module';
 import { ProblemDetailsFilter } from './common/http';
 
 export async function createApplication(): Promise<NestFastifyApplication> {
-  const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter({ trustProxy: true }), { bufferLogs: true });
+  const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter({ trustProxy: true }), { bodyParser: false, bufferLogs: true });
   await app.register(cookie as any);
   await app.register(helmet as any, { contentSecurityPolicy: false });
   await app.register(rateLimit as any, { global: false });
