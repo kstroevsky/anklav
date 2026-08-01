@@ -25,6 +25,8 @@ pnpm dev
 
 ## Architecture
 
+Start with [the architecture guide](docs/architecture.md) for the runtime map, data boundaries, optional integrations, and a plain-language explanation of self-hosting.
+
 - `apps/web` — React, Vite, responsive control-room UI, installable PWA shell.
 - `apps/api` — NestJS/Fastify REST API, Drizzle schema/migrations, local session auth.
 - `apps/mcp` — private OAuth login and stdio bridge for MCP hosts that do not use remote HTTP directly.
