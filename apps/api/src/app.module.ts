@@ -8,9 +8,13 @@ import { WorkspaceService } from './workspace.service';
 import { McpController, McpService } from './mcp';
 import { OAuthController, OAuthMetadataController, OAuthService, OAuthSettingsController } from './oauth';
 import { GitHubController, GitHubPublicController, GitHubService } from './github';
+import { PortfolioKnowledgeController } from './portfolio-knowledge.controller';
+import { PortfolioKnowledgeService } from './portfolio-knowledge.service';
+import { PortfolioImportController } from './portfolio-import.controller';
+import { PortfolioImportService } from './portfolio-import.service';
 
 @Module({
-  controllers: [AuthController, AccountController, WorkspaceController, OAuthMetadataController, OAuthController, OAuthSettingsController, McpController, GitHubPublicController, GitHubController],
-  providers: [DatabaseService, ActivityService, AuthService, SessionGuard, WorkspaceService, ResourceService, OAuthService, McpService, GitHubService],
+  controllers: [AuthController, AccountController, WorkspaceController, OAuthMetadataController, OAuthController, OAuthSettingsController, McpController, GitHubPublicController, GitHubController, PortfolioKnowledgeController, PortfolioImportController],
+  providers: [DatabaseService, ActivityService, AuthService, SessionGuard, WorkspaceService, ResourceService, OAuthService, McpService, GitHubService, PortfolioKnowledgeService, PortfolioImportService],
 })
 export class AppModule {}

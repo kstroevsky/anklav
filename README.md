@@ -40,7 +40,10 @@ pnpm build
 pnpm generate:api
 pnpm db:generate
 pnpm db:migrate
+pnpm --filter @anklav/api import:anklav plan -- --bundle /absolute/path/to/project-control/migration/anklav/v1 --workspace 'Personal R&D' --verify-checksums --require-source-mappings
 ```
+
+For the guarded project-control migration, override decisions, immutable-bundle rules, verification reporting, and rollback behavior, see [the migration runbook](docs/migration-anklav.md).
 
 ## Self-hosting notes
 

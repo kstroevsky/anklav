@@ -34,8 +34,17 @@ export const flowRelationType = pgEnum('flow_relation_type', ['blocks', 'related
 export const checklistKind = pgEnum('checklist_kind', ['readiness', 'acceptance']);
 export const reviewStatus = pgEnum('review_status', ['not_required', 'pending', 'approved', 'changes_requested']);
 export const commentSubject = pgEnum('comment_subject', ['task', 'flow']);
-export const activitySubject = pgEnum('activity_subject', ['workspace', 'membership', 'workflow_state', 'project', 'flow', 'task', 'label', 'comment', 'task_relation', 'flow_relation', 'checklist_item']);
+export const activitySubject = pgEnum('activity_subject', ['workspace', 'membership', 'workflow_state', 'project', 'flow', 'task', 'label', 'comment', 'task_relation', 'flow_relation', 'checklist_item', 'milestone', 'knowledge_artifact', 'import_batch']);
 export const oauthTokenKind = pgEnum('oauth_token_kind', ['access', 'refresh']);
+export const milestoneStatus = pgEnum('milestone_status', ['planned', 'in_progress', 'completed', 'cancelled', 'archived']);
+export const artifactType = pgEnum('artifact_type', ['legacy_document', 'git_reference', 'research', 'specification', 'decision', 'evaluation', 'handoff', 'project_state', 'roadmap', 'agent_instructions']);
+export const artifactOrigin = pgEnum('artifact_origin', ['legacy_source', 'native', 'git_backed']);
+export const artifactCanonicality = pgEnum('artifact_canonicality', ['candidate', 'canonical', 'superseded', 'rejected']);
+export const artifactVerification = pgEnum('artifact_verification', ['unverified', 'verified']);
+export const importBatchStatus = pgEnum('import_batch_status', ['planned', 'applying', 'interrupted', 'completed', 'failed', 'rolling_back', 'rolled_back']);
+export const importMappingStatus = pgEnum('import_mapping_status', ['created', 'matched', 'skipped', 'deferred', 'review_required', 'failed', 'drift', 'rolled_back']);
+export const importConflictStatus = pgEnum('import_conflict_status', ['open', 'resolved', 'deferred']);
+export const importConflictSeverity = pgEnum('import_conflict_severity', ['blocking', 'prerequisite', 'review', 'warning']);
 
 export const users = pgTable('users', {
   id: id(),
@@ -532,3 +541,175 @@ export const notifications = pgTable('notifications', {
   readAt: timestamp('read_at', { withTimezone: true }),
   createdAt: createdAt(),
 }, (table) => [index('notifications_user_unread_index').on(table.userId, table.readAt, table.createdAt)]);
+
+/** A delivery checkpoint is distinct from a continuing flow. */
+export const milestones = pgTable('milestones', {
+  id: id(),
+  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+  projectId: uuid('project_id').notNull().references(() => projects.id),
+  flowId: uuid('flow_id').references(() => flows.id),
+  name: text('name').notNull(),
+  description: text('description').notNull().default(''),
+  status: milestoneStatus('status').notNull().default('planned'),
+  targetDate: date('target_date'),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  version: integer('version').notNull().default(1),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  deletedByUserId: uuid('deleted_by_user_id').references(() => users.id),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (table) => [uniqueIndex('milestone_project_name_unique').on(table.projectId, table.name), index('milestone_workspace_status_index').on(table.workspaceId, table.status), index('milestone_flow_index').on(table.flowId)]);
+
+export const milestoneTasks = pgTable('milestone_tasks', {
+  milestoneId: uuid('milestone_id').notNull().references(() => milestones.id),
+  taskId: uuid('task_id').notNull().references(() => tasks.id),
+  createdAt: createdAt(),
+}, (table) => [uniqueIndex('milestone_task_unique').on(table.milestoneId, table.taskId), index('milestone_tasks_task_index').on(table.taskId)]);
+
+/** Minimal knowledge layer: native content and Git references remain explicitly distinct. */
+export const knowledgeArtifacts = pgTable('knowledge_artifacts', {
+  id: id(),
+  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+  projectId: uuid('project_id').references(() => projects.id),
+  flowId: uuid('flow_id').references(() => flows.id),
+  taskId: uuid('task_id').references(() => tasks.id),
+  type: artifactType('type').notNull(),
+  origin: artifactOrigin('origin').notNull(),
+  canonicality: artifactCanonicality('canonicality').notNull().default('candidate'),
+  verification: artifactVerification('verification').notNull().default('unverified'),
+  title: text('title').notNull(),
+  summary: text('summary').notNull().default(''),
+  currentRevisionId: uuid('current_revision_id'),
+  version: integer('version').notNull().default(1),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  deletedByUserId: uuid('deleted_by_user_id').references(() => users.id),
+  createdByUserId: uuid('created_by_user_id').references(() => users.id),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (table) => [index('knowledge_artifact_workspace_type_index').on(table.workspaceId, table.type), index('knowledge_artifact_project_index').on(table.projectId), index('knowledge_artifact_flow_index').on(table.flowId), index('knowledge_artifact_task_index').on(table.taskId)]);
+
+export const knowledgeArtifactRevisions = pgTable('knowledge_artifact_revisions', {
+  id: id(),
+  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+  artifactId: uuid('artifact_id').notNull().references(() => knowledgeArtifacts.id),
+  revision: integer('revision').notNull(),
+  nativeContent: text('native_content'),
+  contentHash: text('content_hash'),
+  importedAt: timestamp('imported_at', { withTimezone: true }),
+  createdByUserId: uuid('created_by_user_id').references(() => users.id),
+  createdAt: createdAt(),
+}, (table) => [uniqueIndex('knowledge_artifact_revision_unique').on(table.artifactId, table.revision), index('knowledge_artifact_revision_workspace_index').on(table.workspaceId, table.artifactId)]);
+
+export const repositoryArtifactReferences = pgTable('repository_artifact_references', {
+  id: id(),
+  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+  artifactId: uuid('artifact_id').notNull().references(() => knowledgeArtifacts.id),
+  githubRepositoryId: uuid('github_repository_id').references(() => githubRepositories.id),
+  repositoryFullName: text('repository_full_name').notNull(),
+  path: text('path').notNull(),
+  commitSha: text('commit_sha'),
+  contentHash: text('content_hash'),
+  sourceProjectId: uuid('source_project_id').references(() => projects.id),
+  verifiedAt: timestamp('verified_at', { withTimezone: true }),
+  verificationNote: text('verification_note').notNull().default(''),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (table) => [uniqueIndex('repository_artifact_reference_unique').on(table.artifactId, table.repositoryFullName, table.path, table.commitSha), index('repository_artifact_reference_repository_index').on(table.githubRepositoryId), index('repository_artifact_reference_workspace_index').on(table.workspaceId, table.repositoryFullName)]);
+
+export const artifactRelations = pgTable('artifact_relations', {
+  id: id(),
+  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+  fromArtifactId: uuid('from_artifact_id').notNull().references(() => knowledgeArtifacts.id),
+  toArtifactId: uuid('to_artifact_id').notNull().references(() => knowledgeArtifacts.id),
+  relation: text('relation').notNull(),
+  createdAt: createdAt(),
+}, (table) => [uniqueIndex('artifact_relation_unique').on(table.fromArtifactId, table.toArtifactId, table.relation), index('artifact_relation_to_index').on(table.toArtifactId)]);
+
+/** Every imported source object has one durable, workspace-scoped outcome. */
+export const externalSources = pgTable('external_sources', {
+  id: id(),
+  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+  system: text('system').notNull(),
+  bundleVersion: text('bundle_version').notNull(),
+  bundleChecksum: text('bundle_checksum').notNull(),
+  sourceUri: text('source_uri').notNull(),
+  metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (table) => [uniqueIndex('external_source_workspace_bundle_unique').on(table.workspaceId, table.system, table.bundleVersion, table.bundleChecksum)]);
+
+export const importBatches = pgTable('import_batches', {
+  id: id(),
+  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+  externalSourceId: uuid('external_source_id').notNull().references(() => externalSources.id),
+  bundleVersion: text('bundle_version').notNull(),
+  bundleChecksum: text('bundle_checksum').notNull(),
+  bundlePathHash: text('bundle_path_hash').notNull(),
+  status: importBatchStatus('status').notNull().default('planned'),
+  startedAt: timestamp('started_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  actorUserId: uuid('actor_user_id').references(() => users.id),
+  overridesHash: text('overrides_hash'),
+  summary: jsonb('summary').$type<Record<string, unknown>>().notNull().default({}),
+  error: text('error'),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (table) => [index('import_batch_workspace_status_index').on(table.workspaceId, table.status), uniqueIndex('import_batch_source_checksum_unique').on(table.externalSourceId, table.bundleChecksum)]);
+
+export const externalObjectMappings = pgTable('external_object_mappings', {
+  id: id(),
+  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+  externalSourceId: uuid('external_source_id').notNull().references(() => externalSources.id),
+  importBatchId: uuid('import_batch_id').notNull().references(() => importBatches.id),
+  sourceSystem: text('source_system').notNull(),
+  sourceKind: text('source_kind').notNull(),
+  sourceId: text('source_id').notNull(),
+  sourceKey: text('source_key').notNull(),
+  importKey: text('import_key').notNull(),
+  sourceUrl: text('source_url'),
+  bundleVersion: text('bundle_version').notNull(),
+  sourcePayloadHash: text('source_payload_hash').notNull(),
+  targetEntityType: text('target_entity_type').notNull(),
+  targetEntityId: uuid('target_entity_id'),
+  status: importMappingStatus('status').notNull(),
+  createdTarget: boolean('created_target').notNull().default(false),
+  importedAt: timestamp('imported_at', { withTimezone: true }),
+  lastVerifiedAt: timestamp('last_verified_at', { withTimezone: true }),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (table) => [uniqueIndex('external_object_mapping_workspace_source_key_unique').on(table.workspaceId, table.sourceKey), uniqueIndex('external_object_mapping_import_key_unique').on(table.importKey), index('external_object_mapping_batch_index').on(table.importBatchId), index('external_object_mapping_target_index').on(table.targetEntityType, table.targetEntityId)]);
+
+export const importCreatedObjects = pgTable('import_created_objects', {
+  id: id(),
+  importBatchId: uuid('import_batch_id').notNull().references(() => importBatches.id),
+  mappingId: uuid('mapping_id').notNull().references(() => externalObjectMappings.id),
+  targetEntityType: text('target_entity_type').notNull(),
+  targetEntityId: uuid('target_entity_id').notNull(),
+  importedVersion: integer('imported_version'),
+  importedContentHash: text('imported_content_hash').notNull(),
+  createdAt: createdAt(),
+}, (table) => [uniqueIndex('import_created_object_mapping_unique').on(table.mappingId), index('import_created_object_batch_index').on(table.importBatchId)]);
+
+export const importConflicts = pgTable('import_conflicts', {
+  id: id(),
+  importBatchId: uuid('import_batch_id').notNull().references(() => importBatches.id),
+  externalMappingId: uuid('external_mapping_id').references(() => externalObjectMappings.id),
+  code: text('code').notNull(),
+  severity: importConflictSeverity('severity').notNull(),
+  status: importConflictStatus('status').notNull().default('open'),
+  sourceKey: text('source_key'),
+  message: text('message').notNull(),
+  resolution: jsonb('resolution').$type<Record<string, unknown>>(),
+  createdAt: createdAt(),
+  resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+}, (table) => [uniqueIndex('import_conflict_batch_code_source_unique').on(table.importBatchId, table.code, table.sourceKey), index('import_conflict_batch_status_index').on(table.importBatchId, table.status)]);
+
+export const importVerifications = pgTable('import_verifications', {
+  id: id(),
+  importBatchId: uuid('import_batch_id').notNull().references(() => importBatches.id),
+  reportPath: text('report_path').notNull(),
+  reportChecksum: text('report_checksum').notNull(),
+  result: jsonb('result').$type<Record<string, unknown>>().notNull(),
+  verifiedAt: timestamp('verified_at', { withTimezone: true }).notNull().defaultNow(),
+  verifiedByUserId: uuid('verified_by_user_id').references(() => users.id),
+}, (table) => [uniqueIndex('import_verification_batch_unique').on(table.importBatchId)]);

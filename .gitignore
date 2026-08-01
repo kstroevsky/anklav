@@ -8,3 +8,5 @@ coverage
 playwright-report
 test-results
 .codegraph
+migration/anklav/verification/*.json
+migration/anklav/verification/*.sha256

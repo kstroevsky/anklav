@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
-    "openapi:write": "tsx src/openapi.ts"
+    "openapi:write": "tsx src/openapi.ts",
+    "import:anklav": "tsx src/import-anklav.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

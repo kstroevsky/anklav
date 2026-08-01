@@ -17,6 +17,7 @@ import {
 } from './resource.service';
 import { WorkspaceService } from './workspace.service';
 import { McpPrincipal, OAUTH_READ_SCOPE, OAUTH_WRITE_SCOPE, OAuthService } from './oauth';
+import { PortfolioKnowledgeService } from './portfolio-knowledge.service';
 
 const id = z.string().uuid();
 const version = z.number().int().positive();
@@ -26,6 +27,7 @@ const anyOutput = z.object({ result: z.unknown() });
 
 export const MCP_TOOL_NAMES = [
   'list_workspaces', 'get_workspace_context', 'search_work', 'list_projects', 'get_project', 'list_flows', 'get_flow', 'list_tasks', 'get_task', 'get_activity', 'preview_transition',
+  'list_milestones', 'get_milestone', 'get_task_context_pack',
   'create_project', 'update_project', 'create_flow', 'update_flow', 'create_task', 'update_task',
   'add_comment', 'update_comment', 'create_label', 'update_label', 'assign_label', 'unassign_label',
   'add_checklist_item', 'update_checklist_item', 'add_convergence_criterion', 'update_convergence_criterion', 'create_relation', 'unlink_relation',
@@ -37,7 +39,7 @@ const UNLINK: ToolAnnotations = { readOnlyHint: false, destructiveHint: true, id
 
 @Injectable()
 export class McpService {
-  constructor(private readonly oauth: OAuthService, private readonly workspaces: WorkspaceService, private readonly resources: ResourceService) {}
+  constructor(private readonly oauth: OAuthService, private readonly workspaces: WorkspaceService, private readonly resources: ResourceService, private readonly knowledge: PortfolioKnowledgeService) {}
 
   createServer(principal: McpPrincipal): McpServer {
     const server = new McpServer(
@@ -73,6 +75,15 @@ export class McpService {
     read('get_activity', 'Get workspace activity after an optional sequence number.', workspaceId.extend({ after: z.number().int().nonnegative().optional() }), async (input) => { check(input.workspaceId, OAUTH_READ_SCOPE); return this.resources.activity(input.workspaceId, user, input.after); });
     read('preview_transition', 'Preview required warnings before changing a task or flow state.', workspaceId.extend({ entityType: z.enum(['task', 'flow']), entityId: id, stateId: id }), async (input) => {
       check(input.workspaceId, OAUTH_READ_SCOPE); return this.resources.transitionPreview(input.workspaceId, user, input.entityType, input.entityId, input.stateId);
+    });
+    read('list_milestones', 'List concrete delivery checkpoints. Milestones are distinct from continuing flows.', workspaceId.extend({ projectId: id.optional(), flowId: id.optional(), status: z.enum(['planned', 'in_progress', 'completed', 'cancelled', 'archived']).optional() }), async (input) => {
+      check(input.workspaceId, OAUTH_READ_SCOPE); const { workspaceId: value, ...filters } = input; return this.knowledge.listMilestones(value, user, filters);
+    });
+    read('get_milestone', 'Get a native milestone and its linked tasks.', workspaceId.extend({ milestoneId: id }), async (input) => {
+      check(input.workspaceId, OAUTH_READ_SCOPE); return this.knowledge.getMilestone(input.workspaceId, user, input.milestoneId);
+    });
+    read('get_task_context_pack', 'Generate a deterministic task context pack from structured Anklav state and verified/canonical artifacts. Raw sessions and semantic retrieval are intentionally excluded.', workspaceId.extend({ taskId: id }), async (input) => {
+      check(input.workspaceId, OAUTH_READ_SCOPE); return this.knowledge.getTaskContextPack(input.workspaceId, user, input.taskId);
     });
 
     write('create_project', 'Create a project.', workspaceId.merge(projectInput), async (input) => { check(input.workspaceId, OAUTH_WRITE_SCOPE); const { workspaceId: value, ...values } = input; return this.resources.createProject(value, user, values); });

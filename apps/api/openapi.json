@@ -1376,6 +1376,194 @@
           "GitHub"
         ]
       }
+    },
+    "/api/v1/workspaces/{workspaceId}/milestones": {
+      "get": {
+        "operationId": "PortfolioKnowledgeController_listMilestones",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PortfolioKnowledge"
+        ]
+      },
+      "post": {
+        "operationId": "PortfolioKnowledgeController_createMilestone",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PortfolioKnowledge"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/milestones/{milestoneId}": {
+      "get": {
+        "operationId": "PortfolioKnowledgeController_getMilestone",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PortfolioKnowledge"
+        ]
+      },
+      "patch": {
+        "operationId": "PortfolioKnowledgeController_updateMilestone",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PortfolioKnowledge"
+        ]
+      },
+      "delete": {
+        "operationId": "PortfolioKnowledgeController_deleteMilestone",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PortfolioKnowledge"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/knowledge-artifacts": {
+      "get": {
+        "operationId": "PortfolioKnowledgeController_listArtifacts",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PortfolioKnowledge"
+        ]
+      },
+      "post": {
+        "operationId": "PortfolioKnowledgeController_recordArtifact",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PortfolioKnowledge"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/knowledge-artifacts/{artifactId}": {
+      "get": {
+        "operationId": "PortfolioKnowledgeController_getArtifact",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PortfolioKnowledge"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/tasks/{taskId}/context-pack": {
+      "get": {
+        "operationId": "PortfolioKnowledgeController_contextPack",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PortfolioKnowledge"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/imports/anklav/plan": {
+      "get": {
+        "operationId": "PortfolioImportController_plan",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PortfolioImport"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/imports/anklav/apply": {
+      "post": {
+        "operationId": "PortfolioImportController_apply",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PortfolioImport"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/imports/anklav/resume": {
+      "post": {
+        "operationId": "PortfolioImportController_resume",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PortfolioImport"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/imports/anklav/verify": {
+      "post": {
+        "operationId": "PortfolioImportController_verify",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PortfolioImport"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/imports/anklav/rollback": {
+      "post": {
+        "operationId": "PortfolioImportController_rollback",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PortfolioImport"
+        ]
+      }
     }
   },
   "info": {
