@@ -1026,6 +1026,356 @@
           "Mcp"
         ]
       }
+    },
+    "/api/v1/github/manifest/redirect": {
+      "get": {
+        "operationId": "GitHubPublicController_redirect",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GitHubPublic"
+        ]
+      }
+    },
+    "/api/v1/github/manifest/callback": {
+      "get": {
+        "operationId": "GitHubPublicController_callback",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GitHubPublic"
+        ]
+      }
+    },
+    "/api/v1/github/manifest/setup": {
+      "get": {
+        "operationId": "GitHubPublicController_setup",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GitHubPublic"
+        ]
+      }
+    },
+    "/api/v1/github/oauth/callback": {
+      "get": {
+        "operationId": "GitHubPublicController_oauth",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GitHubPublic"
+        ]
+      }
+    },
+    "/api/v1/github/webhook": {
+      "post": {
+        "operationId": "GitHubPublicController_webhook",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GitHubPublic"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/github": {
+      "get": {
+        "operationId": "GitHubController_status",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GitHub"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/github/manifest": {
+      "post": {
+        "operationId": "GitHubController_manifest",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GitHub"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/github/account": {
+      "post": {
+        "operationId": "GitHubController_account",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GitHub"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/github/repositories/mappings": {
+      "post": {
+        "operationId": "GitHubController_mapping",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GitHub"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/github/tasks/{taskRef}/branch": {
+      "get": {
+        "operationId": "GitHubController_branch",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GitHub"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/github/tasks/{taskRef}/issues": {
+      "post": {
+        "operationId": "GitHubController_issue",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GitHub"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/github/tasks/{taskRef}/pull-requests/{pullRequestId}": {
+      "post": {
+        "operationId": "GitHubController_pullRequest",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GitHub"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/github/reviews": {
+      "get": {
+        "operationId": "GitHubController_reviews",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GitHub"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/github/reviews/{pullRequestId}": {
+      "get": {
+        "operationId": "GitHubController_review",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GitHub"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/github/reviews/{pullRequestId}/diff": {
+      "get": {
+        "operationId": "GitHubController_diff",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GitHub"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/github/reviews/{pullRequestId}/reviews": {
+      "post": {
+        "operationId": "GitHubController_submitReview",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GitHub"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/github/reviews/{pullRequestId}/comments": {
+      "post": {
+        "operationId": "GitHubController_comment",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GitHub"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/github/reviews/{pullRequestId}/ready": {
+      "post": {
+        "operationId": "GitHubController_ready",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GitHub"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/github/reviews/{pullRequestId}/merge": {
+      "post": {
+        "operationId": "GitHubController_merge",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GitHub"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/github/notifications": {
+      "get": {
+        "operationId": "GitHubController_notifications",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GitHub"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/github/notifications/unread-count": {
+      "get": {
+        "operationId": "GitHubController_unreadCount",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GitHub"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/github/notifications/{notificationId}/read": {
+      "patch": {
+        "operationId": "GitHubController_read",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GitHub"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/github/health": {
+      "get": {
+        "operationId": "GitHubController_health",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GitHub"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/github/jobs/{jobId}/retry": {
+      "post": {
+        "operationId": "GitHubController_retryJob",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GitHub"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/github/disconnect": {
+      "post": {
+        "operationId": "GitHubController_disconnect",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GitHub"
+        ]
+      }
     }
   },
   "info": {

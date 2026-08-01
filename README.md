@@ -46,7 +46,7 @@ Compose is intentionally HTTP-only inside the deployment. Put a TLS-terminating 
 
 PostgreSQL data is stored in the `anklav-postgres` Docker volume. The first release intentionally does not automate backup/export; protect this volume with your normal infrastructure backup process.
 
-The application has no external integrations, telemetry, agent execution, repository synchronization, or AI-session ingestion.
+The GitHub integration is disabled by default. To enable it, provide a public HTTPS `PUBLIC_BASE_URL`, a base64 32-byte `INTEGRATION_ENCRYPTION_KEY`, and set `GITHUB_INTEGRATION_ENABLED=true`; workspace administrators can then create and install a dedicated GitHub App from the GitHub page in Anklav. Repository source and diffs are fetched on demand and are not persisted.
 
 ## MCP access for coding agents
 

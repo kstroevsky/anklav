@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { ActivityService } from './activity.service';
 import type { AuthUser } from './auth';
 import { flowSemantics, priorities, projectStatuses, taskSemantics } from './common/domain';
+import { slugify } from './common/ids';
 import { DatabaseService } from './db/database.service';
 import {
   activityEvents,
@@ -13,9 +14,15 @@ import {
   flowAllowedProjects,
   flowRelations,
   flows,
+  githubIssueLinks,
+  githubPullRequests,
+  githubRepositories,
+  githubTaskPullRequests,
   labelAssignments,
   labels,
   projects,
+  projectTaskCounters,
+  taskIdentifierAliases,
   taskFlows,
   taskRelations,
   tasks,
@@ -24,6 +31,7 @@ import {
   workspaceMemberships,
 } from './db/schema';
 import { WorkspaceService } from './workspace.service';
+import { GitHubService } from './github';
 
 const markdown = z.string().max(100_000);
 const optionalId = z.string().uuid().nullable().optional();
@@ -65,6 +73,7 @@ type TaskListFilters = {
 
 export const projectInput = z.object({
   name: z.string().trim().min(1).max(160),
+  issueKey: z.string().trim().toUpperCase().regex(/^[A-Z][A-Z0-9]{1,9}$/).optional(),
   description: markdown.optional(),
   status: z.enum(projectStatuses).optional(),
   priority: z.enum(priorities).optional(),
@@ -122,6 +131,7 @@ export class ResourceService {
     private readonly database: DatabaseService,
     private readonly workspaces: WorkspaceService,
     private readonly activityService: ActivityService,
+    private readonly github: GitHubService,
   ) {}
 
   private async state(workspaceId: string, id: string | undefined, entityType: 'task' | 'flow') {
@@ -145,9 +155,38 @@ export class ResourceService {
   }
 
   private async task(workspaceId: string, taskId: string, includeDeleted = false) {
-    const [task] = await this.database.db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.workspaceId, workspaceId), includeDeleted ? undefined : isNull(tasks.deletedAt))).limit(1);
-    if (!task) throw new NotFoundException('Task not found.');
-    return task;
+    const [direct] = await this.database.db.select().from(tasks).where(and(
+      eq(tasks.workspaceId, workspaceId),
+      or(eq(tasks.identifier, taskId), sql`${tasks.id}::text = ${taskId}`),
+      includeDeleted ? undefined : isNull(tasks.deletedAt),
+    )).limit(1);
+    if (direct) return direct;
+    const [alias] = await this.database.db.select({ task: tasks }).from(taskIdentifierAliases)
+      .innerJoin(tasks, eq(taskIdentifierAliases.taskId, tasks.id))
+      .where(and(eq(taskIdentifierAliases.workspaceId, workspaceId), eq(taskIdentifierAliases.identifier, taskId), includeDeleted ? undefined : isNull(tasks.deletedAt))).limit(1);
+    if (!alias) throw new NotFoundException('Task not found.');
+    return alias.task;
+  }
+
+  private async availableProjectIssueKey(workspaceId: string, name: string, requested?: string) {
+    const base = requested ?? (slugify(name).replaceAll('-', '').toUpperCase().slice(0, 8) || 'PROJ');
+    let candidate = base;
+    let suffix = 2;
+    while (true) {
+      const [existing] = await this.database.db.select({ id: projects.id }).from(projects).where(and(eq(projects.workspaceId, workspaceId), eq(projects.issueKey, candidate))).limit(1);
+      if (!existing) return candidate;
+      if (requested) throw new ConflictException('That project issue key is already in use in this workspace.');
+      candidate = `${base.slice(0, Math.max(2, 10 - String(suffix).length))}${suffix++}`;
+    }
+  }
+
+  private async allocateTaskIdentifier(tx: any, workspaceId: string, projectId: string) {
+    const [project] = await tx.select({ issueKey: projects.issueKey }).from(projects).where(and(eq(projects.id, projectId), eq(projects.workspaceId, workspaceId))).limit(1);
+    if (!project) throw new NotFoundException('Project not found.');
+    await tx.insert(projectTaskCounters).values({ projectId, nextNumber: 1 }).onConflictDoNothing();
+    const [counter] = await tx.update(projectTaskCounters).set({ nextNumber: sql`${projectTaskCounters.nextNumber} + 1`, updatedAt: new Date() }).where(eq(projectTaskCounters.projectId, projectId)).returning();
+    const taskNumber = counter!.nextNumber - 1;
+    return { taskNumber, identifier: `${project.issueKey}-${taskNumber}` };
   }
 
   private async membership(workspaceId: string, membershipId: string | null | undefined) {
@@ -192,7 +231,8 @@ export class ResourceService {
 
   async createProject(workspaceId: string, user: AuthUser, input: z.infer<typeof projectInput>) {
     await this.workspaces.requireMembership(workspaceId, user, 'member');
-    const [project] = await this.database.db.insert(projects).values({ workspaceId, ...input }).returning();
+    const issueKey = await this.availableProjectIssueKey(workspaceId, input.name, input.issueKey);
+    const [project] = await this.database.db.insert(projects).values({ workspaceId, ...input, issueKey }).returning();
     await this.activityService.append(this.database.db, { workspaceId, subjectType: 'project', subjectId: project!.id, action: 'created', actor: user, after: { name: project!.name } });
     return project;
   }
@@ -200,6 +240,12 @@ export class ResourceService {
   async updateProject(workspaceId: string, user: AuthUser, projectId: string, version: number, input: Partial<z.infer<typeof projectInput>>) {
     await this.workspaces.requireMembership(workspaceId, user);
     const before = await this.project(workspaceId, projectId);
+    if (input.issueKey && input.issueKey !== before.issueKey) {
+      await this.workspaces.requireMembership(workspaceId, user, 'admin');
+      const [existingTask] = await this.database.db.select({ id: tasks.id }).from(tasks).where(eq(tasks.projectId, projectId)).limit(1);
+      if (existingTask) throw new BadRequestException('A project issue key is immutable after its first task is created.');
+      await this.availableProjectIssueKey(workspaceId, before.name, input.issueKey);
+    }
     const [updated] = await this.database.db.update(projects).set({ ...input, version: sql`${projects.version} + 1`, updatedAt: new Date() })
       .where(and(eq(projects.id, projectId), eq(projects.workspaceId, workspaceId), eq(projects.version, version), isNull(projects.deletedAt))).returning();
     if (!updated) throw new PreconditionFailedException({ title: 'Project was updated elsewhere', current: before });
@@ -315,10 +361,13 @@ export class ResourceService {
     const task = await this.task(workspaceId, taskId);
     const [project] = await this.database.db.select().from(projects).where(eq(projects.id, task.projectId)).limit(1);
     const [state] = await this.database.db.select().from(workflowStates).where(eq(workflowStates.id, task.workflowStateId)).limit(1);
-    const links = await this.database.db.select({ link: taskFlows, flow: flows }).from(taskFlows).innerJoin(flows, eq(taskFlows.flowId, flows.id)).where(and(eq(taskFlows.taskId, taskId), isNull(flows.deletedAt)));
-    const checklists = await this.database.db.select().from(checklistItems).where(eq(checklistItems.taskId, taskId)).orderBy(asc(checklistItems.kind), asc(checklistItems.position));
-    const relations = await this.database.db.select().from(taskRelations).where(and(eq(taskRelations.workspaceId, workspaceId), or(eq(taskRelations.sourceTaskId, taskId), eq(taskRelations.targetTaskId, taskId))));
-    return { ...task, project, state, flows: links, checklists, relations, labels: await this.labelsFor('task', taskId), comments: await this.commentsFor('task', taskId), activity: await this.activityFor(workspaceId, taskId), transitionWarnings: await this.taskWarnings(workspaceId, task, state?.taskSemantic ?? 'inbox') };
+    const links = await this.database.db.select({ link: taskFlows, flow: flows }).from(taskFlows).innerJoin(flows, eq(taskFlows.flowId, flows.id)).where(and(eq(taskFlows.taskId, task.id), isNull(flows.deletedAt)));
+    const checklists = await this.database.db.select().from(checklistItems).where(eq(checklistItems.taskId, task.id)).orderBy(asc(checklistItems.kind), asc(checklistItems.position));
+    const relations = await this.database.db.select().from(taskRelations).where(and(eq(taskRelations.workspaceId, workspaceId), or(eq(taskRelations.sourceTaskId, task.id), eq(taskRelations.targetTaskId, task.id))));
+    const aliases = await this.database.db.select({ identifier: taskIdentifierAliases.identifier }).from(taskIdentifierAliases).where(eq(taskIdentifierAliases.taskId, task.id));
+    const githubIssues = await this.database.db.select({ link: githubIssueLinks, repository: githubRepositories }).from(githubIssueLinks).innerJoin(githubRepositories, eq(githubIssueLinks.repositoryId, githubRepositories.id)).where(eq(githubIssueLinks.taskId, task.id));
+    const githubPullRequestLinks = await this.database.db.select({ link: githubTaskPullRequests, pullRequest: githubPullRequests, repository: githubRepositories }).from(githubTaskPullRequests).innerJoin(githubPullRequests, eq(githubTaskPullRequests.pullRequestId, githubPullRequests.id)).innerJoin(githubRepositories, eq(githubPullRequests.repositoryId, githubRepositories.id)).where(eq(githubTaskPullRequests.taskId, task.id));
+    return { ...task, identifierAliases: aliases.map((entry) => entry.identifier), project, state, flows: links, checklists, relations, githubIssues: githubIssues.map(({ link, repository }) => ({ ...link, repository })), githubPullRequests: githubPullRequestLinks.map(({ link, pullRequest, repository }) => ({ ...link, pullRequest: { ...pullRequest, repository } })), labels: await this.labelsFor('task', task.id), comments: await this.commentsFor('task', task.id), activity: await this.activityFor(workspaceId, task.id), transitionWarnings: await this.taskWarnings(workspaceId, task, state?.taskSemantic ?? 'inbox') };
   }
 
   async createTask(workspaceId: string, user: AuthUser, input: z.infer<typeof taskInput>) {
@@ -329,12 +378,16 @@ export class ResourceService {
     await this.membership(workspaceId, input.reviewerMembershipId);
     if (input.parentTaskId) await this.task(workspaceId, input.parentTaskId);
     const { primaryFlowId, relatedFlowIds, workflowStateId: _, ...values } = input;
-    return this.database.db.transaction(async (tx) => {
-      const [task] = await tx.insert(tasks).values({ workspaceId, ...values, workflowStateId: state.id, reviewStatus: values.humanReviewRequired ? 'pending' : 'not_required' }).returning();
+    const task = await this.database.db.transaction(async (tx) => {
+      const identity = await this.allocateTaskIdentifier(tx, workspaceId, input.projectId);
+      const [task] = await tx.insert(tasks).values({ workspaceId, ...values, ...identity, workflowStateId: state.id, reviewStatus: values.humanReviewRequired ? 'pending' : 'not_required' }).returning();
       await this.linkTaskFlows(workspaceId, task!, user.id, primaryFlowId, relatedFlowIds ?? [], tx);
       await this.activityService.append(tx, { workspaceId, subjectType: 'task', subjectId: task!.id, action: 'created', actor: user, after: { title: task!.title, projectId: task!.projectId } });
       return task;
     });
+    // GitHub writes are asynchronous so a task is never held hostage by a remote outage.
+    void this.github.queueTaskSync(workspaceId, task!.id, 'created').catch(() => undefined);
+    return task;
   }
 
   async updateTask(workspaceId: string, user: AuthUser, taskId: string, version: number, input: Partial<z.infer<typeof taskInput>>) {
@@ -344,9 +397,9 @@ export class ResourceService {
     if (input.workflowStateId) await this.state(workspaceId, input.workflowStateId, 'task');
     await this.membership(workspaceId, input.assigneeMembershipId);
     await this.membership(workspaceId, input.reviewerMembershipId);
-    if (input.parentTaskId) await this.ensureValidParent(workspaceId, taskId, input.parentTaskId);
+    if (input.parentTaskId) await this.ensureValidParent(workspaceId, before.id, input.parentTaskId);
     const { primaryFlowId, relatedFlowIds, workflowStateId: _stateId, ...values } = input;
-    return this.database.db.transaction(async (tx) => {
+    const updated = await this.database.db.transaction(async (tx) => {
       const nextState = input.workflowStateId ? await this.state(workspaceId, input.workflowStateId, 'task') : null;
       const timestamps = nextState ? taskTimestamps(nextState.taskSemantic!, before) : {};
       const reviewFields = input.humanReviewRequired === true && !before.humanReviewRequired
@@ -354,13 +407,18 @@ export class ResourceService {
         : input.humanReviewRequired === false && before.humanReviewRequired
           ? { reviewStatus: 'not_required' as const, reviewDecidedAt: null, reviewNote: '' }
           : {};
-      const [updated] = await tx.update(tasks).set({ ...values, ...reviewFields, ...timestamps, workflowStateId: nextState?.id, version: sql`${tasks.version} + 1`, updatedAt: new Date() }).where(and(eq(tasks.id, taskId), eq(tasks.workspaceId, workspaceId), eq(tasks.version, version), isNull(tasks.deletedAt))).returning();
+      const movedProject = input.projectId && input.projectId !== before.projectId;
+      const nextIdentity = movedProject ? await this.allocateTaskIdentifier(tx, workspaceId, input.projectId!) : {};
+      const [updated] = await tx.update(tasks).set({ ...values, ...nextIdentity, ...reviewFields, ...timestamps, workflowStateId: nextState?.id, version: sql`${tasks.version} + 1`, updatedAt: new Date() }).where(and(eq(tasks.id, before.id), eq(tasks.workspaceId, workspaceId), eq(tasks.version, version), isNull(tasks.deletedAt))).returning();
       if (!updated) throw new PreconditionFailedException({ title: 'Task was updated elsewhere', current: before });
+      if (movedProject) await tx.insert(taskIdentifierAliases).values({ workspaceId, taskId: before.id, identifier: before.identifier });
       if (primaryFlowId !== undefined || relatedFlowIds !== undefined) await this.linkTaskFlows(workspaceId, updated!, user.id, primaryFlowId ?? null, relatedFlowIds ?? [], tx);
       const transitionWarnings = nextState ? await this.taskWarnings(workspaceId, updated!, nextState.taskSemantic!) : [];
-      await this.activityService.append(tx, { workspaceId, subjectType: 'task', subjectId: taskId, action: nextState ? 'updated_with_status_change' : 'updated', actor: user, before: selectChanged(before, values), after: selectChanged(updated!, values), metadata: transitionWarnings.length ? { transitionWarnings } : {} });
+      await this.activityService.append(tx, { workspaceId, subjectType: 'task', subjectId: before.id, action: nextState ? 'updated_with_status_change' : 'updated', actor: user, before: selectChanged(before, values), after: selectChanged(updated!, values), metadata: transitionWarnings.length ? { transitionWarnings } : {} });
       return { ...updated, transitionWarnings };
     });
+    void this.github.queueTaskSync(workspaceId, updated!.id, 'updated').catch(() => undefined);
+    return updated;
   }
 
   async transitionPreview(workspaceId: string, user: AuthUser, type: 'task' | 'flow', id: string, stateId: string) {

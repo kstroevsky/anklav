@@ -7,9 +7,10 @@ import { ResourceService } from './resource.service';
 import { WorkspaceService } from './workspace.service';
 import { McpController, McpService } from './mcp';
 import { OAuthController, OAuthMetadataController, OAuthService, OAuthSettingsController } from './oauth';
+import { GitHubController, GitHubPublicController, GitHubService } from './github';
 
 @Module({
-  controllers: [AuthController, AccountController, WorkspaceController, OAuthMetadataController, OAuthController, OAuthSettingsController, McpController],
-  providers: [DatabaseService, ActivityService, AuthService, SessionGuard, WorkspaceService, ResourceService, OAuthService, McpService],
+  controllers: [AuthController, AccountController, WorkspaceController, OAuthMetadataController, OAuthController, OAuthSettingsController, McpController, GitHubPublicController, GitHubController],
+  providers: [DatabaseService, ActivityService, AuthService, SessionGuard, WorkspaceService, ResourceService, OAuthService, McpService, GitHubService],
 })
 export class AppModule {}
