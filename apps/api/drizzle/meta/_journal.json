@@ -36,6 +36,13 @@
       "when": 1785700100000,
       "tag": "0004_phase_1_1_migration_safety",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785700200000,
+      "tag": "0005_remove_unreachable_import_amendment",
+      "breakpoints": true
     }
   ]
 }

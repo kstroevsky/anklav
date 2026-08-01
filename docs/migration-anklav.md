@@ -24,27 +24,9 @@ pnpm import:anklav apply \
   --require-source-mappings
 ```
 
-The bundle checksum plus a canonical hash of the overrides is the immutable identity of an execution. `apply`, `resume`, `verify`, and `rollback` reject different overrides. A completed execution is a no-op only for the identical decision set. A *planned, not-yet-applied* execution may be explicitly amended and applied by ID:
+The bundle checksum plus a canonical hash of the overrides is the immutable identity of an execution. `apply`, `resume`, `verify`, and `rollback` reject different overrides. A completed execution is a no-op only for the identical decision set. To change decisions after any write, roll back under the guarded rules and run a clean new `apply`; the rolled-back batch retires its mappings from matching and the new batch restores only objects that it had created.
 
-```bash
-pnpm import:anklav amend \
-  --bundle /absolute/path/to/project-control/migration/anklav/v1 \
-  --workspace 'Personal R&D' \
-  --overrides /secure/path/revised-anklav-overrides.json \
-  --prior-batch <prior-batch-uuid> \
-  --actor <anklav-user-uuid>
-
-pnpm import:anklav apply \
-  --bundle /absolute/path/to/project-control/migration/anklav/v1 \
-  --workspace 'Personal R&D' \
-  --overrides /secure/path/revised-anklav-overrides.json \
-  --amendment-batch <amendment-batch-uuid> \
-  --actor <anklav-user-uuid>
-```
-
-Each target and its external-object mapping are written in one database transaction. A repeated source key whose payload hash changes becomes a drift conflict; Anklav never overwrites the target silently. A rolled-back batch retires its mappings from matching and a clean reapplication uses a new batch, restoring only objects that batch had created.
-
-For a batch that has already written mappings, do not amend decisions in place. Roll it back under the guarded rules and then apply the desired override set as a clean new batch; this prevents a changed disposition from reusing an old mapping outcome.
+Each target and its external-object mapping are written in one database transaction. A repeated source key whose payload hash changes becomes a drift conflict; Anklav never overwrites the target silently.
 
 Verification writes only outside the bundle:
 

@@ -1540,22 +1540,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/workspaces/{workspaceId}/imports/anklav/amend/{priorBatchId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["PortfolioImportController_amend"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/workspaces/{workspaceId}/imports/anklav/rollback": {
         parameters: {
             query?: never;
@@ -3574,23 +3558,6 @@ export interface operations {
         };
     };
     PortfolioImportController_verify: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    PortfolioImportController_amend: {
         parameters: {
             query?: never;
             header?: never;

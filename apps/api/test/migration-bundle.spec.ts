@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdtemp, mkdir, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -29,6 +29,15 @@ async function fixture() {
   return root;
 }
 
+async function rewriteChecksummedFile(root: string, name: string, content: string) {
+  await writeFile(join(root, name), content);
+  const checksums = (await readFile(join(root, 'checksums.sha256'), 'utf8'))
+    .trimEnd()
+    .split('\n')
+    .map((line) => line.endsWith(`  ${name}`) ? `${hash(content)}  ${name}` : line);
+  await writeFile(join(root, 'checksums.sha256'), checksums.join('\n'));
+}
+
 describe('neutral migration bundle guard', () => {
   it('validates the immutable v1 contract and makes no writes', async () => {
     const root = await fixture();
@@ -51,5 +60,17 @@ describe('neutral migration bundle guard', () => {
     await mkdir(join(root, 'nested'));
     await symlink('../manifest.json', join(root, 'nested', 'linked.json'));
     await expect(loadMigrationBundle(root)).rejects.toThrow(/symlink/i);
+  });
+
+  it('rejects potential credentials during the no-write bundle preflight', async () => {
+    const root = await fixture();
+    await rewriteChecksummedFile(root, 'linear-documents.ndjson', `${JSON.stringify({ body: `sk-proj-${'a'.repeat(24)}` })}\n`);
+    await expect(loadMigrationBundle(root)).rejects.toThrow(/credential/i);
+  });
+
+  it('rejects raw session bodies instead of accepting them as Phase 1 metadata', async () => {
+    const root = await fixture();
+    await rewriteChecksummedFile(root, 'chat-session-metadata.ndjson', `${JSON.stringify({ provider: 'codex', messages: [{ role: 'user', text: 'raw session body' }] })}\n`);
+    await expect(loadMigrationBundle(root)).rejects.toThrow(/raw session content/i);
   });
 });

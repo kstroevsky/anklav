@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, desc, eq, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { AuthUser } from './auth';
 import { ActivityService } from './activity.service';
 import { slugify } from './common/ids';
@@ -31,8 +31,6 @@ export type ImportRequest = {
   overrides?: ImportOverrides;
   verifyChecksums?: boolean;
   requireSourceMappings?: boolean;
-  /** Explicitly selects an amendment decision set created by amend(). */
-  amendmentBatchId?: string;
 };
 
 type ResolvedTarget = { status: 'created' | 'matched' | 'skipped' | 'deferred' | 'review_required'; targetType: string; targetId?: string; created?: boolean; version?: number | null; contentHash?: string };
@@ -126,9 +124,9 @@ export class PortfolioImportService {
     const existingWorkspace = await this.findWorkspace(request.workspace);
     const drift = existingWorkspace ? await this.findDrift(bundle, existingWorkspace.id) : [];
     if (drift.length) throw new ConflictException({ title: 'Migration apply is blocked by source payload drift. Resolve it explicitly; Anklav will not overwrite imported targets.', drift });
-    const initialized = await this.initialize(bundle, request.workspace, actor, overrides, request.amendmentBatchId);
+    const initialized = await this.initialize(bundle, request.workspace, actor, overrides);
     if (initialized.batch.status === 'completed') return { mode: 'apply', noOp: true, batch: initialized.batch, message: 'The same checksummed bundle and frozen overrides have already completed for this workspace.' };
-    if (!['applying', 'interrupted', 'planned'].includes(initialized.batch.status)) throw new ConflictException(`Import batch ${initialized.batch.id} is ${initialized.batch.status}; start an explicit amendment or reapplication instead.`);
+    if (!['applying', 'interrupted', 'planned'].includes(initialized.batch.status)) throw new ConflictException(`Import batch ${initialized.batch.id} is ${initialized.batch.status}; roll back before a clean reapplication.`);
     if (initialized.batch.status !== 'applying') await this.database.db.update(importBatches).set({ status: 'applying', startedAt: initialized.batch.startedAt ?? new Date(), updatedAt: new Date(), error: null }).where(eq(importBatches.id, initialized.batch.id));
     const anklavProjectId = await this.ensureAnklavProject(initialized.workspace.id, actor, initialized.batch.id);
     const context: ImportContext = { bundle, workspaceId: initialized.workspace.id, batchId: initialized.batch.id, externalSourceId: initialized.source.id, actor, overrides, targets: new Map(), anklavProjectId };
@@ -154,31 +152,12 @@ export class PortfolioImportService {
 
   async resume(request: ImportRequest, actor: AuthUser): Promise<Record<string, unknown>> { return this.apply(request, actor); }
 
-  /** Opens an explicit, auditable decision amendment. It does not mutate a prior batch. */
-  async amend(request: ImportRequest, actor: AuthUser, priorBatchId: string): Promise<Record<string, unknown>> {
-    const bundle = await loadMigrationBundle(request.bundle, true);
-    const workspace = await this.findWorkspace(request.workspace);
-    if (!workspace) throw new NotFoundException('Target workspace must exist before creating an import amendment.');
-    const overrides = request.overrides ?? {};
-    const overridesHash = digest(overrides);
-    const [prior] = await this.database.db.select().from(importBatches).where(and(eq(importBatches.id, priorBatchId), eq(importBatches.workspaceId, workspace.id), eq(importBatches.bundleChecksum, bundle.bundleChecksum))).limit(1);
-    if (!prior) throw new NotFoundException('The amendment base batch does not belong to this workspace and bundle.');
-    if (prior.overridesHash === overridesHash) throw new ConflictException('An amendment must contain a different overrides hash. Reuse the original batch for unchanged decisions.');
-    const [mapped] = await this.database.db.select({ count: sql<number>`count(*)::int` }).from(externalObjectMappings).where(eq(externalObjectMappings.importBatchId, prior.id));
-    if (prior.status !== 'planned' || (mapped?.count ?? 0) > 0) throw new ConflictException('Applied import decisions cannot be amended in place. Roll back the batch, then create a clean reapplication batch with the new overrides.');
-    const [existing] = await this.database.db.select().from(importBatches).where(and(eq(importBatches.externalSourceId, prior.externalSourceId), eq(importBatches.overridesHash, overridesHash), eq(importBatches.amendsBatchId, prior.id))).orderBy(desc(importBatches.createdAt)).limit(1);
-    if (existing) return { mode: 'amend', noOp: true, batch: existing };
-    const [batch] = await this.database.db.insert(importBatches).values({ workspaceId: workspace.id, externalSourceId: prior.externalSourceId, bundleVersion: bundle.manifest.schemaVersion, bundleChecksum: bundle.bundleChecksum, bundlePathHash: digest(bundle.root), status: 'planned', actorUserId: actor.id, overridesHash, amendsBatchId: prior.id }).returning();
-    await this.activity.append(this.database.db, { workspaceId: workspace.id, subjectType: 'import_batch', subjectId: batch!.id, action: 'amendment_created', actor, after: { amendsBatchId: prior.id, overridesHash } });
-    return { mode: 'amend', noOp: false, batch };
-  }
-
   async verify(request: ImportRequest, actor: AuthUser, verificationReport: string): Promise<Record<string, unknown>> {
     const bundle = await loadMigrationBundle(request.bundle, true);
     const workspace = await this.findWorkspace(request.workspace);
     if (!workspace) throw new NotFoundException('Target workspace not found.');
     const reportPath = assertVerificationOutputOutsideBundle(bundle.root, verificationReport);
-    const batch = await this.frozenBatch(workspace.id, bundle, request.overrides ?? {}, request.amendmentBatchId);
+    const batch = await this.frozenBatch(workspace.id, bundle, request.overrides ?? {});
     const report = await this.authoritativeVerification(bundle, workspace, batch, request.overrides ?? {}, actor);
     const content = JSON.stringify(report, null, 2);
     const checksum = digest(content);
@@ -202,7 +181,7 @@ export class PortfolioImportService {
     const bundle = await loadMigrationBundle(request.bundle, true);
     const workspace = await this.findWorkspace(request.workspace);
     if (!workspace) throw new NotFoundException('Target workspace not found.');
-    const batch = await this.frozenBatch(workspace.id, bundle, request.overrides ?? {}, request.amendmentBatchId);
+    const batch = await this.frozenBatch(workspace.id, bundle, request.overrides ?? {});
     if (batch.status === 'rolled_back') return { batchId: batch.id, rolledBackObjects: 0, guardedOverride, noOp: true };
     const created = await this.database.db.select().from(importCreatedObjects).where(eq(importCreatedObjects.importBatchId, batch.id));
     const edited = await this.editedCreatedObjects(created);
@@ -223,15 +202,13 @@ export class PortfolioImportService {
   }
 
   /** Every state-changing/read-verification command replays the same frozen decisions. */
-  private async frozenBatch(workspaceId: string, bundle: MigrationBundle, overrides: ImportOverrides, amendmentBatchId?: string) {
+  private async frozenBatch(workspaceId: string, bundle: MigrationBundle, overrides: ImportOverrides) {
     const overridesHash = digest(overrides);
     const candidates = await this.database.db.select().from(importBatches).where(and(eq(importBatches.workspaceId, workspaceId), eq(importBatches.bundleChecksum, bundle.bundleChecksum))).orderBy(desc(importBatches.createdAt));
-    const batch = amendmentBatchId
-      ? candidates.find((candidate) => candidate.id === amendmentBatchId)
-      : candidates.find((candidate) => !candidate.amendsBatchId && candidate.overridesHash === overridesHash);
+    const batch = candidates.find((candidate) => candidate.overridesHash === overridesHash);
     if (!batch) {
       const known = candidates.map((candidate) => ({ id: candidate.id, overridesHash: candidate.overridesHash, status: candidate.status }));
-      throw new ConflictException({ title: 'No import batch has this bundle and overrides identity. Changed decisions require an explicit amendment.', bundleChecksum: bundle.bundleChecksum, overridesHash, knownBatches: known });
+      throw new ConflictException({ title: 'No import batch has this bundle and overrides identity. Roll back the prior batch before applying a changed decision set.', bundleChecksum: bundle.bundleChecksum, overridesHash, knownBatches: known });
     }
     if (batch.overridesHash !== overridesHash) throw new ConflictException('Incoming overrides do not match the frozen batch overrides hash.');
     return batch;
@@ -250,22 +227,17 @@ export class PortfolioImportService {
     return { sourceRepositoryVisibility: supplied.sourceRepositoryVisibility, projectControlTasks, milestoneClassifications, sourceFlowDispositions };
   }
 
-  private async initialize(bundle: MigrationBundle, selector: string, actor: AuthUser, overrides: ImportOverrides, amendmentBatchId?: string) {
+  private async initialize(bundle: MigrationBundle, selector: string, actor: AuthUser, overrides: ImportOverrides) {
     const currentWorkspace = await this.findWorkspace(selector);
     if (!currentWorkspace) throw new NotFoundException('Target workspace must exist before apply. An import never creates a workspace.');
     const overridesHash = digest(overrides);
     return this.database.db.transaction(async (tx) => {
       const [source] = await tx.insert(externalSources).values({ workspaceId: currentWorkspace.id, system: 'project-control', bundleVersion: bundle.manifest.schemaVersion, bundleChecksum: bundle.bundleChecksum, sourceUri: bundle.manifest.bundle.path, metadata: { sourceOfTruth: bundle.sourceOfTruth } }).onConflictDoUpdate({ target: [externalSources.workspaceId, externalSources.system, externalSources.bundleVersion, externalSources.bundleChecksum], set: { updatedAt: new Date() } }).returning();
       const batches = await tx.select().from(importBatches).where(and(eq(importBatches.externalSourceId, source!.id), eq(importBatches.bundleChecksum, bundle.bundleChecksum))).orderBy(desc(importBatches.createdAt));
-      if (amendmentBatchId) {
-        const [amendment] = batches.filter((candidate) => candidate.id === amendmentBatchId && candidate.overridesHash === overridesHash);
-        if (!amendment) throw new ConflictException('The requested amendment batch does not match this bundle and frozen overrides.');
-        return { workspace: currentWorkspace, source: source!, batch: amendment };
-      }
-      const exact = batches.find((candidate) => candidate.overridesHash === overridesHash && !candidate.amendsBatchId);
+      const exact = batches.find((candidate) => candidate.overridesHash === overridesHash);
       if (exact && exact.status !== 'rolled_back') return { workspace: currentWorkspace, source: source!, batch: exact };
       if (batches.some((candidate) => candidate.overridesHash !== overridesHash && candidate.status !== 'rolled_back')) {
-        throw new ConflictException({ title: 'Import decisions are frozen for this bundle. Create an explicit amendment before applying changed overrides.', bundleChecksum: bundle.bundleChecksum, overridesHash, existingBatches: batches.map((candidate) => ({ id: candidate.id, status: candidate.status, overridesHash: candidate.overridesHash })) });
+        throw new ConflictException({ title: 'Import decisions are frozen for this bundle. Roll back the prior batch before applying changed overrides.', bundleChecksum: bundle.bundleChecksum, overridesHash, existingBatches: batches.map((candidate) => ({ id: candidate.id, status: candidate.status, overridesHash: candidate.overridesHash })) });
       }
       const [batch] = await tx.insert(importBatches).values({ workspaceId: currentWorkspace.id, externalSourceId: source!.id, bundleVersion: bundle.manifest.schemaVersion, bundleChecksum: bundle.bundleChecksum, bundlePathHash: digest(bundle.root), status: 'applying', startedAt: new Date(), actorUserId: actor.id, overridesHash }).returning();
       await this.activity.append(tx, { workspaceId: currentWorkspace.id, subjectType: 'import_batch', subjectId: batch!.id, action: 'created', actor, after: { bundleChecksum: bundle.bundleChecksum, bundleVersion: bundle.manifest.schemaVersion } });
@@ -658,7 +630,10 @@ export class PortfolioImportService {
 
   private async originalIdentifiersPreserved(workspaceId: string, bundle: MigrationBundle): Promise<boolean> {
     const nativeIdentifiers = bundle.records['tasks.ndjson']!.filter((task) => task.importDisposition === 'create_or_match').map((task) => String((source(task) ?? {}).identifier));
-    const rows = nativeIdentifiers.length ? await this.database.db.select({ identifier: taskIdentifierAliases.identifier }).from(taskIdentifierAliases).where(and(eq(taskIdentifierAliases.workspaceId, workspaceId), sql`${taskIdentifierAliases.identifier} = ANY(${nativeIdentifiers})`)) : [];
+    const rows = nativeIdentifiers.length
+      ? await this.database.db.select({ identifier: taskIdentifierAliases.identifier }).from(taskIdentifierAliases)
+        .where(and(eq(taskIdentifierAliases.workspaceId, workspaceId), inArray(taskIdentifierAliases.identifier, nativeIdentifiers)))
+      : [];
     if (new Set(rows.map((row) => row.identifier)).size !== nativeIdentifiers.length) return false;
     // Archived project-control tasks have no native task by design; their original
     // Linear identifier remains resolvable in the immutable source URL provenance.

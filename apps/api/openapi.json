@@ -1621,20 +1621,6 @@
         ]
       }
     },
-    "/api/v1/workspaces/{workspaceId}/imports/anklav/amend/{priorBatchId}": {
-      "post": {
-        "operationId": "PortfolioImportController_amend",
-        "parameters": [],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "PortfolioImport"
-        ]
-      }
-    },
     "/api/v1/workspaces/{workspaceId}/imports/anklav/rollback": {
       "post": {
         "operationId": "PortfolioImportController_rollback",

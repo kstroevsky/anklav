@@ -1,6 +1,5 @@
 import { sql } from 'drizzle-orm';
 import {
-  AnyPgColumn,
   bigint,
   boolean,
   date,
@@ -657,8 +656,6 @@ export const importBatches = pgTable('import_batches', {
   actorUserId: uuid('actor_user_id').references(() => users.id),
   /** The checksummed bundle plus this hash is the frozen decision identity. */
   overridesHash: text('overrides_hash').notNull(),
-  /** An explicit amendment is the only way to open a new decision set. */
-  amendsBatchId: uuid('amends_batch_id').references((): AnyPgColumn => importBatches.id),
   summary: jsonb('summary').$type<Record<string, unknown>>().notNull().default({}),
   error: text('error'),
   createdAt: createdAt(),

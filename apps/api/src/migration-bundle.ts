@@ -7,6 +7,14 @@ import { z } from 'zod';
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const MAX_RECORD_BYTES = 1024 * 1024;
 const MAX_BUNDLE_BYTES = 100 * 1024 * 1024;
+const credentialPatterns = [
+  /-----BEGIN(?: [A-Z0-9]+)? PRIVATE KEY-----/,
+  /\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/,
+  /\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b/,
+  /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/,
+  /(?:^|\n)\s*[A-Z][A-Z0-9_]*(?:TOKEN|SECRET|API[_-]?KEY|PASSWORD)\s*[:=]\s*(?!\$\{|<|REDACTED|redacted)[^\s]{16,}/m,
+];
+const rawSessionKeys = new Set(['message', 'messages', 'content', 'rawcontent', 'sessionmessages', 'transcript', 'prompt', 'response']);
 
 const manifestSchema = z.object({
   schemaVersion: z.literal('1.2.0'),
@@ -150,6 +158,24 @@ function reconcileExpectedCounts(expected: Record<string, number>, records: Reco
   }
 }
 
+/** Reject secrets before parsing/importing any document into PostgreSQL. */
+function assertNoPotentialCredentials(raw: Map<string, Buffer>): void {
+  for (const [name, bytes] of raw) {
+    const content = bytes.toString('utf8');
+    if (credentialPatterns.some((pattern) => pattern.test(content))) throw new BadRequestException(`Potential credential detected in ${name}; redact it before importing the immutable bundle.`);
+  }
+}
+
+/** Phase 1 accepts metadata only; session bodies belong to the later ingestion phase. */
+function assertChatMetadataHasNoRawContent(records: BundleRecord[]): void {
+  const walk = (value: unknown): boolean => {
+    if (Array.isArray(value)) return value.some(walk);
+    if (!value || typeof value !== 'object') return false;
+    return Object.entries(value as Record<string, unknown>).some(([key, child]) => rawSessionKeys.has(key.toLocaleLowerCase()) || walk(child));
+  };
+  if (records.some(walk)) throw new BadRequestException('chat-session-metadata.ndjson contains raw session content; Phase 1 accepts metadata only.');
+}
+
 /** Validates the immutable neutral bundle before any database operation. */
 export async function loadMigrationBundle(bundlePath: string, verifyChecksums = true): Promise<MigrationBundle> {
   const inputStat = await lstat(bundlePath).catch(() => undefined);
@@ -181,6 +207,7 @@ export async function loadMigrationBundle(bundlePath: string, verifyChecksums = 
   for (const required of ['manifest.json', 'schema.json', 'expected-counts.json', 'import-contract.json', 'source-of-truth.json', 'unresolved-conflicts.json', 'workspace.json', ...ndjsonFiles]) {
     if (!raw.has(required)) throw new BadRequestException(`Required bundle file is missing: ${required}`);
   }
+  assertNoPotentialCredentials(raw);
   const parseJson = (name: string): BundleRecord => {
     try { return JSON.parse(raw.get(name)!.toString('utf8')) as BundleRecord; } catch { throw new BadRequestException(`${name} is not valid JSON.`); }
   };
@@ -189,6 +216,7 @@ export async function loadMigrationBundle(bundlePath: string, verifyChecksums = 
   if (schema.schemaVersion !== '1.2.0' || schema.$schema !== 'https://json-schema.org/draft/2020-12/schema') throw new BadRequestException('schema.json is not the supported neutral bundle schema.');
   const expectedCounts = z.record(z.string(), z.number().int().nonnegative()).parse(parseJson('expected-counts.json'));
   const records = Object.fromEntries(ndjsonFiles.map((name) => [name, parseNdjson(name, raw.get(name)!)])) as Record<string, BundleRecord[]>;
+  assertChatMetadataHasNoRawContent(records['chat-session-metadata.ndjson']!);
   validateRecords(records);
   const conflictsParsed = parseJson('unresolved-conflicts.json');
   const conflicts = z.array(z.object({ code: z.string().min(1), severity: z.enum(['blocking', 'prerequisite', 'review', 'warning']), message: z.string().min(1) }).passthrough()).parse(conflictsParsed);

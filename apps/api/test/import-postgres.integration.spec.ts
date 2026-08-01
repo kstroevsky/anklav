@@ -85,6 +85,7 @@ describePostgres('Phase 1.1 PostgreSQL migration safety', () => {
   let workspaceService: WorkspaceService;
   let knowledge: PortfolioKnowledgeService;
   let root = '';
+  let previousBundleRoot: string | undefined;
   let actor: AuthUser;
   let workspaceId = '';
   const report = () => join(root, '..', 'verification', 'anklav-import-verification.json');
@@ -92,6 +93,8 @@ describePostgres('Phase 1.1 PostgreSQL migration safety', () => {
   beforeAll(async () => {
     root = await mkdtemp(join(tmpdir(), 'anklav-schema-1.2.0-fixture-'));
     await writeSanitizedFixture(root);
+    previousBundleRoot = process.env.ANKLAV_MIGRATION_BUNDLE_ROOT;
+    process.env.ANKLAV_MIGRATION_BUNDLE_ROOT = root;
     database = new DatabaseService();
     const activity = new ActivityService();
     workspaceService = new WorkspaceService(database, activity);
@@ -100,7 +103,12 @@ describePostgres('Phase 1.1 PostgreSQL migration safety', () => {
     knowledge = new PortfolioKnowledgeService(database, workspaceService, activity, resources, github);
     imports = new PortfolioImportService(database, activity, knowledge);
   });
-  afterAll(async () => { await database?.onModuleDestroy(); if (root) await rm(root, { recursive: true, force: true }); });
+  afterAll(async () => {
+    await database?.onModuleDestroy();
+    if (previousBundleRoot === undefined) delete process.env.ANKLAV_MIGRATION_BUNDLE_ROOT;
+    else process.env.ANKLAV_MIGRATION_BUNDLE_ROOT = previousBundleRoot;
+    if (root) await rm(root, { recursive: true, force: true });
+  });
   beforeEach(async () => {
     // The fixture deliberately reuses immutable source import keys. Clear the
     // isolated integration database between cases so uniqueness is exercised
