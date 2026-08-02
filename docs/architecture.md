@@ -29,7 +29,7 @@ flowchart LR
   agent["MCP clients\nCodex / Claude Code"] --> proxy
   proxy --> web["Web container\nNginx + React PWA"]
   web -->|"/api/v1, /oauth, /.well-known, /mcp"| api["API container\nNestJS + Fastify"]
-  api --> db["PostgreSQL\nsource of truth"]
+  api --> db["PostgreSQL 17 + pgvector\nsource of truth"]
   migrate["Migration container\nDrizzle migrations"] --> db
   api -. "optional, explicitly enabled" .-> github["GitHub API and webhooks"]
 ```
@@ -43,7 +43,7 @@ For local development, the reverse-proxy box is not required: Docker Compose exp
 | `apps/web` | React/Vite control-room UI, PWA manifest, cached static shell, and same-origin browser requests. | Yes, through the web container. |
 | `apps/api` | NestJS/Fastify REST API, authentication, domain rules, OpenAPI, OAuth, MCP, and optional GitHub integration. | Only indirectly through the web proxy in Compose. |
 | `apps/mcp` | Optional local stdio bridge for MCP hosts that cannot use the remote HTTP endpoint. | No; this is a locally run command-line program. |
-| PostgreSQL | Durable source of truth for user accounts, work records, grants, integrations, and activity history. | No, internal Compose network only. |
+| PostgreSQL + pgvector | Durable source of truth for user accounts, work records, repository identities, grants, integrations, event streams, and future vector-backed retrieval. | No, internal Compose network only. |
 | `migrate` service | Applies Drizzle migrations before the API starts. | No. It exits after migration. |
 | `packages/api-client` | Generated TypeScript API contract consumed by clients and tooling. | Not a runtime service. |
 
@@ -73,14 +73,17 @@ The PWA caches static application files so the shell can load without a connecti
 
 ## Core work model and persistence
 
-The database is the current-state source of truth. Anklav is not event-sourced: project, flow, task, relation, and comment tables contain the current record. A meaningful mutation also appends an immutable activity event in the same transaction.
+The database is the source of truth. Tasks use an immutable, idempotent domain-event stream with a rebuildable current-state projection. Other project, flow, relation, and comment tables currently store their authoritative current record. Meaningful mutations also append immutable activity records.
 
 ```mermaid
 flowchart TD
   workspace["Workspace"] --> project["Project\ntechnical ownership"]
+  workspace --> repository["Repository\nprovider-neutral identity"]
   workspace --> flow["Flow\ncontinuity of purpose"]
   workspace --> task["Task\nbounded execution"]
   task -->|"exactly one"| project
+  project -->|"one primary, supporting many"| repository
+  task -->|"optional repository + path scope"| repository
   task -->|"zero or one primary"| flow
   task -->|"zero or more related"| flow
   task --> activity["Immutable activity event"]
@@ -92,6 +95,9 @@ Important correctness boundaries live in the API and database schema:
 
 - Records are scoped to a workspace; permissions use workspace memberships and roles.
 - Projects own the technical home of a task. Flows can span projects and are linked through tasks.
+- Repository identity is workspace-scoped and provider-neutral. GitHub installations and machine-local checkout paths are mappings or aliases, never identity.
+- Task contracts explicitly capture objective, constraints, risk, expected artifacts, repository/branch/path scope, context policy, memory mode, approvals, and coordination ownership.
+- Every task command records an idempotency key and ordered domain event; direct workflow-state projection changes are rejected by PostgreSQL.
 - Task and flow workflow states are configurable per workspace but retain a stable semantic category.
 - Mutations of versioned records require `If-Match`; stale writes return `412 Precondition Failed` with the current record.
 - Task and flow relations reject self-links, duplicates, hierarchy cycles, and blocking cycles where applicable.
@@ -149,7 +155,7 @@ Production responsibilities belong to the operator:
 
 ## Scope and Boundaries
 
-The architecture is deliberately small: one database and one API process coordinate the core rather than a microservice fleet. The current application does not include vector search, embeddings, RAG, session ingestion, automatic task generation, generic workflow automation, analytics, distributed workers, or a general repository mirror.
+The architecture is deliberately small: one database and one API process coordinate the core rather than a microservice fleet. The PostgreSQL image includes pgvector 0.8.1 and migrations enable the `vector` extension so later retrieval work does not require a database-image migration. The current application does not yet implement embeddings, vector-search APIs, RAG, automatic task generation, generic workflow automation, analytics, distributed workers, or a general repository mirror.
 
 The optional MCP and GitHub paths are explicit extensions with their own permission and configuration boundaries. They do not make raw agent output canonical project knowledge, and they do not replace normal task, flow, human-review, or activity-history rules.
 

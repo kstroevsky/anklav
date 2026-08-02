@@ -3,23 +3,30 @@ import { z } from 'zod';
 import { parseBody } from '../common/http';
 import type { AuthUser, AuthedRequest } from '../auth';
 import { SessionGuard } from '../auth';
-import {
-  checklistInput, commentInput, criterionInput, flowInput, labelInput, projectInput, relationInput, reviewInput, ResourceService, taskInput,
-} from '../resource.service';
+import { checklistInput, commentInput, criterionInput, flowInput, labelInput, projectInput, projectRepositoryInput, relationInput, repositoryAliasInput, repositoryInput, reviewInput, ResourceService, taskInput } from '../resource.service';
 import { requireVersion, workspaceInput, workflowInput, WorkspaceService } from '../workspace.service';
 
-function user(request: AuthedRequest): AuthUser { return request.user; }
+function user(request: AuthedRequest): AuthUser {
+  return request.user;
+}
 
 @UseGuards(SessionGuard)
 @Controller('api/v1/workspaces')
 export class WorkspaceController {
-  constructor(private readonly service: WorkspaceService, private readonly resources: ResourceService) {}
+  constructor(
+    private readonly service: WorkspaceService,
+    private readonly resources: ResourceService,
+  ) {}
 
   @Get()
-  list(@Req() request: AuthedRequest) { return this.service.listForUser(user(request)); }
+  list(@Req() request: AuthedRequest) {
+    return this.service.listForUser(user(request));
+  }
 
   @Post()
-  create(@Req() request: AuthedRequest, @Body() body: unknown) { return this.service.create(user(request), parseBody(workspaceInput, body)); }
+  create(@Req() request: AuthedRequest, @Body() body: unknown) {
+    return this.service.create(user(request), parseBody(workspaceInput, body));
+  }
 
   @Patch(':workspaceId')
   update(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Body() body: unknown) {
@@ -37,24 +44,47 @@ export class WorkspaceController {
   }
 
   @Get(':workspaceId/members')
-  members(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest) { return this.service.listMembers(workspaceId, user(request)); }
+  members(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest) {
+    return this.service.listMembers(workspaceId, user(request));
+  }
 
   @Get(':workspaceId/available-users')
-  availableUsers(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest) { return this.service.listAvailableUsers(workspaceId, user(request)); }
+  availableUsers(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest) {
+    return this.service.listAvailableUsers(workspaceId, user(request));
+  }
 
   @Post(':workspaceId/members')
   addMember(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Body() body: unknown) {
-    const input = parseBody(z.object({ userId: z.string().uuid(), role: z.enum(['owner', 'admin', 'member']) }), body);
+    const input = parseBody(
+      z.object({
+        userId: z.string().uuid(),
+        role: z.enum(['owner', 'admin', 'member']),
+      }),
+      body,
+    );
     return this.service.addMember(workspaceId, user(request), input.userId, input.role);
   }
 
   @Patch(':workspaceId/members/:membershipId')
   updateMember(@Param('workspaceId') workspaceId: string, @Param('membershipId') membershipId: string, @Req() request: AuthedRequest, @Body() body: unknown) {
-    return this.service.updateMember(workspaceId, user(request), membershipId, parseBody(z.object({ role: z.enum(['owner', 'admin', 'member']).optional(), active: z.boolean().optional() }), body));
+    return this.service.updateMember(
+      workspaceId,
+      user(request),
+      membershipId,
+      parseBody(
+        z.object({
+          role: z.enum(['owner', 'admin', 'member']).optional(),
+          active: z.boolean().optional(),
+        }),
+        body,
+      ),
+    );
   }
 
   @Get(':workspaceId/workflows')
-  workflows(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Query('entity') entity?: 'task' | 'flow') { return this.service.listWorkflowStates(workspaceId, user(request), entity); }
+  workflows(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Query('entity') entity?: 'task' | 'flow') {
+    return this.service.listWorkflowStates(workspaceId, user(request), entity);
+  }
 
   @Post(':workspaceId/workflows/:entityType')
   createWorkflow(@Param('workspaceId') workspaceId: string, @Param('entityType') entityType: 'task' | 'flow', @Req() request: AuthedRequest, @Body() body: unknown) {
@@ -73,74 +103,179 @@ export class WorkspaceController {
     return this.service.archiveWorkflowState(workspaceId, user(request), stateId, requireVersion(ifMatch), input.replacementStateId);
   }
 
+  @Get(':workspaceId/repositories')
+  repositories(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest) {
+    return this.resources.listRepositories(workspaceId, user(request));
+  }
+
+  @Post(':workspaceId/repositories')
+  createRepository(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Body() body: unknown) {
+    return this.resources.createRepository(workspaceId, user(request), parseBody(repositoryInput, body));
+  }
+
+  @Get(':workspaceId/repositories/:repositoryId')
+  repository(@Param('workspaceId') workspaceId: string, @Param('repositoryId') repositoryId: string, @Req() request: AuthedRequest) {
+    return this.resources.getRepository(workspaceId, user(request), repositoryId);
+  }
+
+  @Patch(':workspaceId/repositories/:repositoryId')
+  updateRepository(@Param('workspaceId') workspaceId: string, @Param('repositoryId') repositoryId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Body() body: unknown) {
+    return this.resources.updateRepository(workspaceId, user(request), repositoryId, requireVersion(ifMatch), parseBody(repositoryInput.partial(), body));
+  }
+
+  @Post(':workspaceId/repositories/:repositoryId/aliases')
+  setRepositoryAlias(@Param('workspaceId') workspaceId: string, @Param('repositoryId') repositoryId: string, @Req() request: AuthedRequest, @Body() body: unknown) {
+    return this.resources.setRepositoryAlias(workspaceId, user(request), repositoryId, parseBody(repositoryAliasInput, body));
+  }
+
   @Get(':workspaceId/projects')
-  projects(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Query() query: Record<string, string | undefined>) { return this.resources.listProjects(workspaceId, user(request), query); }
+  projects(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Query() query: Record<string, string | undefined>) {
+    return this.resources.listProjects(workspaceId, user(request), query);
+  }
 
   @Post(':workspaceId/projects')
-  createProject(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Body() body: unknown) { return this.resources.createProject(workspaceId, user(request), parseBody(projectInput, body)); }
+  createProject(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Body() body: unknown) {
+    return this.resources.createProject(workspaceId, user(request), parseBody(projectInput, body));
+  }
 
   @Get(':workspaceId/projects/:projectId')
-  project(@Param('workspaceId') workspaceId: string, @Param('projectId') projectId: string, @Req() request: AuthedRequest) { return this.resources.getProject(workspaceId, user(request), projectId); }
+  project(@Param('workspaceId') workspaceId: string, @Param('projectId') projectId: string, @Req() request: AuthedRequest) {
+    return this.resources.getProject(workspaceId, user(request), projectId);
+  }
 
   @Patch(':workspaceId/projects/:projectId')
-  updateProject(@Param('workspaceId') workspaceId: string, @Param('projectId') projectId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Body() body: unknown) { return this.resources.updateProject(workspaceId, user(request), projectId, requireVersion(ifMatch), parseBody(projectInput.partial(), body)); }
+  updateProject(@Param('workspaceId') workspaceId: string, @Param('projectId') projectId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Body() body: unknown) {
+    return this.resources.updateProject(workspaceId, user(request), projectId, requireVersion(ifMatch), parseBody(projectInput.partial(), body));
+  }
+
+  @Post(':workspaceId/projects/:projectId/repositories')
+  linkProjectRepository(@Param('workspaceId') workspaceId: string, @Param('projectId') projectId: string, @Req() request: AuthedRequest, @Body() body: unknown) {
+    return this.resources.linkProjectRepository(workspaceId, user(request), projectId, parseBody(projectRepositoryInput, body));
+  }
+
+  @Delete(':workspaceId/projects/:projectId/repositories/:repositoryId')
+  unlinkProjectRepository(@Param('workspaceId') workspaceId: string, @Param('projectId') projectId: string, @Param('repositoryId') repositoryId: string, @Req() request: AuthedRequest) {
+    return this.resources.unlinkProjectRepository(workspaceId, user(request), projectId, repositoryId);
+  }
 
   @Get(':workspaceId/flows')
-  flows(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Query() query: Record<string, string | undefined>) { return this.resources.listFlows(workspaceId, user(request), query); }
+  flows(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Query() query: Record<string, string | undefined>) {
+    return this.resources.listFlows(workspaceId, user(request), query);
+  }
 
   @Post(':workspaceId/flows')
-  createFlow(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Body() body: unknown) { return this.resources.createFlow(workspaceId, user(request), parseBody(flowInput, body)); }
+  createFlow(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Body() body: unknown) {
+    return this.resources.createFlow(workspaceId, user(request), parseBody(flowInput, body));
+  }
 
   @Get(':workspaceId/flows/:flowId')
-  flow(@Param('workspaceId') workspaceId: string, @Param('flowId') flowId: string, @Req() request: AuthedRequest) { return this.resources.getFlow(workspaceId, user(request), flowId); }
+  flow(@Param('workspaceId') workspaceId: string, @Param('flowId') flowId: string, @Req() request: AuthedRequest) {
+    return this.resources.getFlow(workspaceId, user(request), flowId);
+  }
 
   @Patch(':workspaceId/flows/:flowId')
-  updateFlow(@Param('workspaceId') workspaceId: string, @Param('flowId') flowId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Body() body: unknown) { return this.resources.updateFlow(workspaceId, user(request), flowId, requireVersion(ifMatch), parseBody(flowInput.partial(), body)); }
+  updateFlow(@Param('workspaceId') workspaceId: string, @Param('flowId') flowId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Body() body: unknown) {
+    return this.resources.updateFlow(workspaceId, user(request), flowId, requireVersion(ifMatch), parseBody(flowInput.partial(), body));
+  }
 
   @Get(':workspaceId/tasks')
-  tasks(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Query() query: Record<string, string | undefined>) { return this.resources.listTasks(workspaceId, user(request), query); }
+  tasks(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Query() query: Record<string, string | undefined>) {
+    return this.resources.listTasks(workspaceId, user(request), query);
+  }
 
   @Post(':workspaceId/tasks')
-  createTask(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Headers('idempotency-key') idempotencyKey: string | undefined, @Body() body: unknown) { return this.resources.createTask(workspaceId, user(request), parseBody(taskInput, body), idempotencyKey); }
+  createTask(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Headers('idempotency-key') idempotencyKey: string | undefined, @Body() body: unknown) {
+    return this.resources.createTask(workspaceId, user(request), parseBody(taskInput, body), idempotencyKey);
+  }
 
   @Get(':workspaceId/tasks/:taskId')
-  task(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Req() request: AuthedRequest) { return this.resources.getTask(workspaceId, user(request), taskId); }
+  task(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Req() request: AuthedRequest) {
+    return this.resources.getTask(workspaceId, user(request), taskId);
+  }
 
   @Get(':workspaceId/tasks/:taskId/events')
-  taskEvents(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Req() request: AuthedRequest) { return this.resources.listTaskEvents(workspaceId, user(request), taskId); }
+  taskEvents(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Req() request: AuthedRequest) {
+    return this.resources.listTaskEvents(workspaceId, user(request), taskId);
+  }
 
   @Patch(':workspaceId/tasks/:taskId')
-  updateTask(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Headers('idempotency-key') idempotencyKey: string | undefined, @Body() body: unknown) { return this.resources.updateTask(workspaceId, user(request), taskId, requireVersion(ifMatch), parseBody(taskInput.partial(), body), idempotencyKey); }
+  updateTask(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Headers('idempotency-key') idempotencyKey: string | undefined, @Body() body: unknown) {
+    return this.resources.updateTask(workspaceId, user(request), taskId, requireVersion(ifMatch), parseBody(taskInput.partial(), body), idempotencyKey);
+  }
 
   @Get(':workspaceId/tasks/:taskId/transition-preview')
-  taskTransition(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Query('stateId') stateId: string, @Req() request: AuthedRequest) { return this.resources.transitionPreview(workspaceId, user(request), 'task', taskId, stateId); }
+  taskTransition(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Query('stateId') stateId: string, @Req() request: AuthedRequest) {
+    return this.resources.transitionPreview(workspaceId, user(request), 'task', taskId, stateId);
+  }
 
   @Patch(':workspaceId/tasks/:taskId/review')
-  updateReview(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Headers('idempotency-key') idempotencyKey: string | undefined, @Body() body: unknown) { return this.resources.updateReview(workspaceId, user(request), taskId, requireVersion(ifMatch), parseBody(reviewInput, body), idempotencyKey); }
+  updateReview(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Headers('idempotency-key') idempotencyKey: string | undefined, @Body() body: unknown) {
+    return this.resources.updateReview(workspaceId, user(request), taskId, requireVersion(ifMatch), parseBody(reviewInput, body), idempotencyKey);
+  }
 
   @Get(':workspaceId/flows/:flowId/transition-preview')
-  flowTransition(@Param('workspaceId') workspaceId: string, @Param('flowId') flowId: string, @Query('stateId') stateId: string, @Req() request: AuthedRequest) { return this.resources.transitionPreview(workspaceId, user(request), 'flow', flowId, stateId); }
+  flowTransition(@Param('workspaceId') workspaceId: string, @Param('flowId') flowId: string, @Query('stateId') stateId: string, @Req() request: AuthedRequest) {
+    return this.resources.transitionPreview(workspaceId, user(request), 'flow', flowId, stateId);
+  }
 
   @Post(':workspaceId/tasks/:taskId/checklists')
-  createChecklist(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Req() request: AuthedRequest, @Body() body: unknown) { return this.resources.createChecklist(workspaceId, user(request), taskId, parseBody(checklistInput, body)); }
+  createChecklist(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Req() request: AuthedRequest, @Body() body: unknown) {
+    return this.resources.createChecklist(workspaceId, user(request), taskId, parseBody(checklistInput, body));
+  }
 
   @Patch(':workspaceId/checklists/:itemId')
-  updateChecklist(@Param('workspaceId') workspaceId: string, @Param('itemId') itemId: string, @Req() request: AuthedRequest, @Body() body: unknown) { return this.resources.updateChecklist(workspaceId, user(request), itemId, parseBody(z.object({ text: z.string().min(1).max(5_000).optional(), completed: z.boolean().optional(), position: z.number().int().min(0).optional() }), body)); }
+  updateChecklist(@Param('workspaceId') workspaceId: string, @Param('itemId') itemId: string, @Req() request: AuthedRequest, @Body() body: unknown) {
+    return this.resources.updateChecklist(
+      workspaceId,
+      user(request),
+      itemId,
+      parseBody(
+        z.object({
+          text: z.string().min(1).max(5_000).optional(),
+          completed: z.boolean().optional(),
+          position: z.number().int().min(0).optional(),
+        }),
+        body,
+      ),
+    );
+  }
 
   @Post(':workspaceId/flows/:flowId/criteria')
-  createCriterion(@Param('workspaceId') workspaceId: string, @Param('flowId') flowId: string, @Req() request: AuthedRequest, @Body() body: unknown) { return this.resources.createCriterion(workspaceId, user(request), flowId, parseBody(criterionInput, body)); }
+  createCriterion(@Param('workspaceId') workspaceId: string, @Param('flowId') flowId: string, @Req() request: AuthedRequest, @Body() body: unknown) {
+    return this.resources.createCriterion(workspaceId, user(request), flowId, parseBody(criterionInput, body));
+  }
 
   @Patch(':workspaceId/criteria/:criterionId')
-  updateCriterion(@Param('workspaceId') workspaceId: string, @Param('criterionId') criterionId: string, @Req() request: AuthedRequest, @Body() body: unknown) { return this.resources.updateCriterion(workspaceId, user(request), criterionId, parseBody(z.object({ text: z.string().min(1).max(5_000).optional(), completed: z.boolean().optional(), position: z.number().int().min(0).optional() }), body)); }
+  updateCriterion(@Param('workspaceId') workspaceId: string, @Param('criterionId') criterionId: string, @Req() request: AuthedRequest, @Body() body: unknown) {
+    return this.resources.updateCriterion(
+      workspaceId,
+      user(request),
+      criterionId,
+      parseBody(
+        z.object({
+          text: z.string().min(1).max(5_000).optional(),
+          completed: z.boolean().optional(),
+          position: z.number().int().min(0).optional(),
+        }),
+        body,
+      ),
+    );
+  }
 
   @Get(':workspaceId/labels')
-  labels(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest) { return this.resources.listLabels(workspaceId, user(request)); }
+  labels(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest) {
+    return this.resources.listLabels(workspaceId, user(request));
+  }
 
   @Post(':workspaceId/labels')
-  createLabel(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Body() body: unknown) { return this.resources.createLabel(workspaceId, user(request), parseBody(labelInput, body)); }
+  createLabel(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Body() body: unknown) {
+    return this.resources.createLabel(workspaceId, user(request), parseBody(labelInput, body));
+  }
 
   @Patch(':workspaceId/labels/:labelId')
-  updateLabel(@Param('workspaceId') workspaceId: string, @Param('labelId') labelId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Body() body: unknown) { return this.resources.updateLabel(workspaceId, user(request), labelId, requireVersion(ifMatch), parseBody(labelInput.partial(), body)); }
+  updateLabel(@Param('workspaceId') workspaceId: string, @Param('labelId') labelId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Body() body: unknown) {
+    return this.resources.updateLabel(workspaceId, user(request), labelId, requireVersion(ifMatch), parseBody(labelInput.partial(), body));
+  }
 
   @Post(':workspaceId/:subject/:subjectId/labels/:labelId')
   assignLabel(@Param('workspaceId') workspaceId: string, @Param('subject') subject: 'project' | 'flow' | 'task', @Param('subjectId') subjectId: string, @Param('labelId') labelId: string, @Req() request: AuthedRequest) {
@@ -153,34 +288,54 @@ export class WorkspaceController {
   }
 
   @Post(':workspaceId/:subject/:subjectId/comments')
-  createComment(@Param('workspaceId') workspaceId: string, @Param('subject') subject: 'task' | 'flow', @Param('subjectId') subjectId: string, @Req() request: AuthedRequest, @Body() body: unknown) { return this.resources.createComment(workspaceId, user(request), validCommentSubject(subject), subjectId, parseBody(commentInput, body)); }
+  createComment(@Param('workspaceId') workspaceId: string, @Param('subject') subject: 'task' | 'flow', @Param('subjectId') subjectId: string, @Req() request: AuthedRequest, @Body() body: unknown) {
+    return this.resources.createComment(workspaceId, user(request), validCommentSubject(subject), subjectId, parseBody(commentInput, body));
+  }
 
   @Patch(':workspaceId/comments/:commentId')
-  updateComment(@Param('workspaceId') workspaceId: string, @Param('commentId') commentId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Body() body: unknown) { return this.resources.updateComment(workspaceId, user(request), commentId, requireVersion(ifMatch), parseBody(commentInput, body).body); }
+  updateComment(@Param('workspaceId') workspaceId: string, @Param('commentId') commentId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Body() body: unknown) {
+    return this.resources.updateComment(workspaceId, user(request), commentId, requireVersion(ifMatch), parseBody(commentInput, body).body);
+  }
 
   @Post(':workspaceId/:kind/relations')
-  createRelation(@Param('workspaceId') workspaceId: string, @Param('kind') kind: 'task' | 'flow', @Req() request: AuthedRequest, @Body() body: unknown) { return this.resources.createRelation(workspaceId, user(request), validRelationKind(kind), parseBody(relationInput, body)); }
+  createRelation(@Param('workspaceId') workspaceId: string, @Param('kind') kind: 'task' | 'flow', @Req() request: AuthedRequest, @Body() body: unknown) {
+    return this.resources.createRelation(workspaceId, user(request), validRelationKind(kind), parseBody(relationInput, body));
+  }
 
   @Delete(':workspaceId/:kind/relations/:relationId')
-  deleteRelation(@Param('workspaceId') workspaceId: string, @Param('kind') kind: 'task' | 'flow', @Param('relationId') relationId: string, @Req() request: AuthedRequest) { return this.resources.deleteRelation(workspaceId, user(request), validRelationKind(kind), relationId); }
+  deleteRelation(@Param('workspaceId') workspaceId: string, @Param('kind') kind: 'task' | 'flow', @Param('relationId') relationId: string, @Req() request: AuthedRequest) {
+    return this.resources.deleteRelation(workspaceId, user(request), validRelationKind(kind), relationId);
+  }
 
   @Delete(':workspaceId/:kind/:id')
-  deleteItem(@Param('workspaceId') workspaceId: string, @Param('kind') kind: 'project' | 'flow' | 'task' | 'label' | 'comment', @Param('id') id: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Headers('idempotency-key') idempotencyKey: string | undefined) { return this.resources.softDelete(workspaceId, user(request), validDeleteKind(kind), id, requireVersion(ifMatch), idempotencyKey); }
+  deleteItem(@Param('workspaceId') workspaceId: string, @Param('kind') kind: 'project' | 'flow' | 'task' | 'label' | 'comment', @Param('id') id: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Headers('idempotency-key') idempotencyKey: string | undefined) {
+    return this.resources.softDelete(workspaceId, user(request), validDeleteKind(kind), id, requireVersion(ifMatch), idempotencyKey);
+  }
 
   @Post(':workspaceId/:kind/:id/restore')
-  restoreItem(@Param('workspaceId') workspaceId: string, @Param('kind') kind: 'project' | 'flow' | 'task' | 'label' | 'comment', @Param('id') id: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Headers('idempotency-key') idempotencyKey: string | undefined) { return this.resources.restore(workspaceId, user(request), validDeleteKind(kind), id, requireVersion(ifMatch), idempotencyKey); }
+  restoreItem(@Param('workspaceId') workspaceId: string, @Param('kind') kind: 'project' | 'flow' | 'task' | 'label' | 'comment', @Param('id') id: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Headers('idempotency-key') idempotencyKey: string | undefined) {
+    return this.resources.restore(workspaceId, user(request), validDeleteKind(kind), id, requireVersion(ifMatch), idempotencyKey);
+  }
 
   @Get(':workspaceId/activity')
-  activity(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Query('after') after?: string) { return this.resources.activity(workspaceId, user(request), after ? Number(after) : undefined); }
+  activity(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Query('after') after?: string) {
+    return this.resources.activity(workspaceId, user(request), after ? Number(after) : undefined);
+  }
 
   @Get(':workspaceId/changes')
-  changes(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Query('after') after?: string) { return this.resources.activity(workspaceId, user(request), after ? Number(after) : undefined); }
+  changes(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Query('after') after?: string) {
+    return this.resources.activity(workspaceId, user(request), after ? Number(after) : undefined);
+  }
 
   @Get(':workspaceId/search')
-  search(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Query('q') q = '') { return this.resources.search(workspaceId, user(request), q); }
+  search(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Query('q') q = '') {
+    return this.resources.search(workspaceId, user(request), q);
+  }
 
   @Get(':workspaceId/trash')
-  trash(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest) { return this.resources.listTrash(workspaceId, user(request)); }
+  trash(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest) {
+    return this.resources.listTrash(workspaceId, user(request));
+  }
 }
 
 function validSubject(subject: string): 'project' | 'flow' | 'task' {

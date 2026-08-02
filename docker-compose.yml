@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:17-alpine
+    image: pgvector/pgvector:0.8.1-pg17-bookworm
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-anklav}
       POSTGRES_USER: ${POSTGRES_USER:-anklav}

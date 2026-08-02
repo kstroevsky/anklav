@@ -315,6 +315,72 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceId}/repositories": {
+      "get": {
+        "operationId": "WorkspaceController_repositories",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      },
+      "post": {
+        "operationId": "WorkspaceController_createRepository",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/repositories/{repositoryId}": {
+      "get": {
+        "operationId": "WorkspaceController_repository",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      },
+      "patch": {
+        "operationId": "WorkspaceController_updateRepository",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/repositories/{repositoryId}/aliases": {
+      "post": {
+        "operationId": "WorkspaceController_setRepositoryAlias",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceId}/projects": {
       "get": {
         "operationId": "WorkspaceController_projects",
@@ -356,6 +422,34 @@
       },
       "patch": {
         "operationId": "WorkspaceController_updateProject",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/repositories": {
+      "post": {
+        "operationId": "WorkspaceController_linkProjectRepository",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/repositories/{repositoryId}": {
+      "delete": {
+        "operationId": "WorkspaceController_unlinkProjectRepository",
         "parameters": [],
         "responses": {
           "200": {
