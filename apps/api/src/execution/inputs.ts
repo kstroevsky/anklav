@@ -55,6 +55,7 @@ export const appendRunEventInput = z.object({
   idempotencyKey: z.string().trim().min(8).max(500),
   payload: z.record(z.string(), z.unknown()).default({}),
   artifactId: z.string().uuid().nullable().optional(),
+  evidenceArtifactId: z.string().uuid().nullable().optional(),
   occurredAt: z.string().datetime({ offset: true }),
 });
 
@@ -70,6 +71,7 @@ export const checkpointInput = z.object({
   lastVerified: z.record(z.string(), z.unknown()).default({}),
   nextAction: z.string().trim().min(1).max(50_000),
   artifactIds: z.array(z.string().uuid()).max(500).default([]),
+  evidenceArtifactIds: z.array(z.string().uuid()).max(500).default([]),
   assumptions: z.array(z.record(z.string(), z.unknown())).max(500).default([]),
   coveredEventSequenceStart: z.number().int().positive().nullable().optional(),
   coveredEventSequenceEnd: z.number().int().positive().nullable().optional(),

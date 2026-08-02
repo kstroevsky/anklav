@@ -10,8 +10,9 @@ import { OAuthModule } from './oauth/oauth.module';
 import { ResourceModule } from './resource/resource.module';
 import { WorkspaceModule } from './workspace/workspace.module';
 import { ExecutionModule } from './execution/execution.module';
+import { EvidenceModule } from './evidence/evidence.module';
 
 @Module({
-  imports: [AccountModule, AuthModule, DomainModule, GitHubModule, ImportModule, KnowledgeModule, McpModule, OAuthModule, ResourceModule, WorkspaceModule, ExecutionModule],
+  imports: [AccountModule, AuthModule, DomainModule, GitHubModule, ImportModule, KnowledgeModule, McpModule, OAuthModule, ResourceModule, WorkspaceModule, ExecutionModule, EvidenceModule],
 })
 export class AppModule {}

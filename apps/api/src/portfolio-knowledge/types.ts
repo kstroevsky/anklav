@@ -34,11 +34,11 @@ export type ContextPackOptions = {
 };
 
 const SECTION_POLICIES: Record<ContextPackProjection, readonly string[]> = {
-  max: ['generatedFrom', 'taskContract', 'operationalGitState', 'taskCheckpoint', 'activeRuns', 'project', 'flows', 'milestones', 'acceptedDecisions', 'verifiedArtifacts', 'repositories', 'linkedGitHub', 'taskRelations', 'dependencies', 'sourceProvenance', 'latestHandoff', 'humanReview', 'blockers', 'explicitNonGoals', 'semanticRetrieval'],
-  standard: ['generatedFrom', 'taskContract', 'operationalGitState', 'taskCheckpoint', 'activeRuns', 'project', 'flows', 'milestones', 'acceptedDecisions', 'verifiedArtifacts', 'repositories', 'linkedGitHub', 'taskRelations', 'dependencies', 'latestHandoff', 'humanReview', 'blockers', 'explicitNonGoals', 'semanticRetrieval'],
-  low: ['generatedFrom', 'taskContract', 'operationalGitState', 'taskCheckpoint', 'project', 'acceptedDecisions', 'repositories', 'latestHandoff', 'humanReview', 'blockers', 'explicitNonGoals'],
-  review: ['generatedFrom', 'taskContract', 'operationalGitState', 'taskCheckpoint', 'project', 'acceptedDecisions', 'verifiedArtifacts', 'repositories', 'linkedGitHub', 'taskRelations', 'dependencies', 'humanReview', 'blockers', 'explicitNonGoals'],
-  handoff: ['generatedFrom', 'taskContract', 'operationalGitState', 'taskCheckpoint', 'activeRuns', 'project', 'flows', 'acceptedDecisions', 'verifiedArtifacts', 'repositories', 'taskRelations', 'dependencies', 'latestHandoff', 'blockers', 'explicitNonGoals'],
+  max: ['generatedFrom', 'taskContract', 'operationalGitState', 'taskCheckpoint', 'exactEvidence', 'activeRuns', 'project', 'flows', 'milestones', 'acceptedDecisions', 'verifiedArtifacts', 'repositories', 'linkedGitHub', 'taskRelations', 'dependencies', 'sourceProvenance', 'latestHandoff', 'humanReview', 'blockers', 'explicitNonGoals', 'semanticRetrieval'],
+  standard: ['generatedFrom', 'taskContract', 'operationalGitState', 'taskCheckpoint', 'exactEvidence', 'activeRuns', 'project', 'flows', 'milestones', 'acceptedDecisions', 'verifiedArtifacts', 'repositories', 'linkedGitHub', 'taskRelations', 'dependencies', 'latestHandoff', 'humanReview', 'blockers', 'explicitNonGoals', 'semanticRetrieval'],
+  low: ['generatedFrom', 'taskContract', 'operationalGitState', 'taskCheckpoint', 'exactEvidence', 'project', 'acceptedDecisions', 'repositories', 'latestHandoff', 'humanReview', 'blockers', 'explicitNonGoals'],
+  review: ['generatedFrom', 'taskContract', 'operationalGitState', 'taskCheckpoint', 'exactEvidence', 'project', 'acceptedDecisions', 'verifiedArtifacts', 'repositories', 'linkedGitHub', 'taskRelations', 'dependencies', 'humanReview', 'blockers', 'explicitNonGoals'],
+  handoff: ['generatedFrom', 'taskContract', 'operationalGitState', 'taskCheckpoint', 'exactEvidence', 'activeRuns', 'project', 'flows', 'acceptedDecisions', 'verifiedArtifacts', 'repositories', 'taskRelations', 'dependencies', 'latestHandoff', 'blockers', 'explicitNonGoals'],
 };
 
 function canonical(value: unknown): unknown {

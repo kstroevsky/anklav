@@ -1481,6 +1481,60 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceId}/evidence-artifacts": {
+      "get": {
+        "operationId": "EvidenceController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Evidence"
+        ]
+      },
+      "post": {
+        "operationId": "EvidenceController_record",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Evidence"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/evidence-artifacts/{artifactId}": {
+      "get": {
+        "operationId": "EvidenceController_get",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Evidence"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/evidence-artifacts/{artifactId}/content": {
+      "get": {
+        "operationId": "EvidenceController_content",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Evidence"
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceId}/tasks/{taskId}/runs": {
       "get": {
         "operationId": "ExecutionController_listTaskRuns",

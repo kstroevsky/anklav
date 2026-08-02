@@ -99,6 +99,7 @@ export const runCheckpoints = pgTable('run_checkpoints', {
   lastVerified: jsonb('last_verified').$type<Record<string, unknown>>().notNull().default({}),
   nextAction: text('next_action').notNull(),
   artifactIds: jsonb('artifact_ids').$type<string[]>().notNull().default([]),
+  evidenceArtifactIds: jsonb('evidence_artifact_ids').$type<string[]>().notNull().default([]),
   assumptions: jsonb('assumptions').$type<Record<string, unknown>[]>().notNull().default([]),
   coveredEventSequenceStart: bigint('covered_event_sequence_start', { mode: 'number' }),
   coveredEventSequenceEnd: bigint('covered_event_sequence_end', { mode: 'number' }),

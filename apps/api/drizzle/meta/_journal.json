@@ -57,6 +57,13 @@
       "when": 1785683921438,
       "tag": "0007_odd_stryfe",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1785684615645,
+      "tag": "0008_useful_nightshade",
+      "breakpoints": true
     }
   ]
 }

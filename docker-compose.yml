@@ -39,6 +39,9 @@ services:
       INTEGRATION_ENCRYPTION_KEY: ${INTEGRATION_ENCRYPTION_KEY:-}
       PORT: 3000
       COOKIE_SECURE: "false"
+      EVIDENCE_STORAGE_PATH: /var/lib/anklav/evidence
+    volumes:
+      - anklav-evidence:/var/lib/anklav/evidence
     depends_on:
       postgres:
         condition: service_healthy
@@ -56,3 +59,4 @@ services:
 
 volumes:
   anklav-postgres:
+  anklav-evidence:

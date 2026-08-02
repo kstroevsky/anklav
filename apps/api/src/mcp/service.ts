@@ -10,9 +10,11 @@ import { anyOutput, id, page, READ, UNLINK, version, workspaceId, WRITE } from '
 import { failure, resource, success, variable, warningsMatch } from './helpers';
 import { ExecutionService } from '../execution/service';
 import { appendRunEventInput, checkpointInput, finishRunInput, gitSliceInput, nativeSessionInput, startRunInput } from '../execution/inputs';
+import { EvidenceService } from '../evidence/service';
+import { evidenceArtifactInput } from '../evidence/inputs';
 
 export class McpService {
-  constructor(private readonly oauth: OAuthService, private readonly workspaces: WorkspaceService, private readonly resources: ResourceService, private readonly knowledge: PortfolioKnowledgeService, private readonly execution: ExecutionService) {}
+  constructor(private readonly oauth: OAuthService, private readonly workspaces: WorkspaceService, private readonly resources: ResourceService, private readonly knowledge: PortfolioKnowledgeService, private readonly execution: ExecutionService, private readonly evidence: EvidenceService) {}
 
   createServer(principal: McpPrincipal): McpServer {
     const server = new McpServer(
@@ -67,6 +69,15 @@ export class McpService {
     read('list_run_events', 'Read a run event stream in sequence order using an optional continuation cursor.', workspaceId.extend({ runId: id, after: z.number().int().nonnegative().optional() }), async (input) => {
       check(input.workspaceId, OAUTH_READ_SCOPE); return this.execution.listRunEvents(input.workspaceId, user, input.runId, input.after);
     });
+    read('list_evidence_artifacts', 'List immutable evidence manifests, optionally scoped to one task or run.', workspaceId.extend({ taskId: id.optional(), runId: id.optional() }), async (input) => {
+      check(input.workspaceId, OAUTH_READ_SCOPE); return this.evidence.list(input.workspaceId, user, { taskId: input.taskId, runId: input.runId });
+    });
+    read('get_evidence_artifact', 'Get an immutable evidence manifest and its producing run-event links.', workspaceId.extend({ artifactId: id }), async (input) => {
+      check(input.workspaceId, OAUTH_READ_SCOPE); return this.evidence.get(input.workspaceId, user, input.artifactId);
+    });
+    read('read_evidence_artifact', 'Read an exact evidence byte range as base64. Continue with nextOffset for large artifacts.', workspaceId.extend({ artifactId: id, offset: z.number().int().nonnegative().optional(), length: z.number().int().min(1).max(1_048_576).optional() }), async (input) => {
+      check(input.workspaceId, OAUTH_READ_SCOPE); return this.evidence.readRange(input.workspaceId, user, input.artifactId, input.offset, input.length);
+    });
 
     write('create_project', 'Create a project.', workspaceId.merge(projectInput), async (input) => { check(input.workspaceId, OAUTH_WRITE_SCOPE); const { workspaceId: value, ...values } = input; return this.resources.createProject(value, user, values); });
     write('update_project', 'Update a project using its latest expectedVersion.', workspaceId.extend({ projectId: id, expectedVersion: version }).merge(projectInput.partial()), async (input) => {
@@ -98,6 +109,9 @@ export class McpService {
     });
     write('finish_run', 'Finish a run. Modifying runs must capture their ending Git slice.', workspaceId.extend({ runId: id }).merge(finishRunInput), async (input) => {
       check(input.workspaceId, OAUTH_WRITE_SCOPE); const { workspaceId: value, runId, ...values } = input; return this.execution.finishRun(value, user, runId, values);
+    });
+    write('record_evidence_artifact', 'Store exact immutable evidence under a server-verified SHA-256 hash and create its manifest.', workspaceId.merge(evidenceArtifactInput), async (input) => {
+      check(input.workspaceId, OAUTH_WRITE_SCOPE); const { workspaceId: value, ...values } = input; return this.evidence.record(value, user, values);
     });
     write('update_task', 'Update a task. A warned state change requires exact acknowledgedWarnings from preview_transition.', workspaceId.extend({ taskId: id, expectedVersion: version, acknowledgedWarnings: z.array(z.string()).max(20).optional() }).merge(taskInput.partial()), async (input) => {
       check(input.workspaceId, OAUTH_WRITE_SCOPE);

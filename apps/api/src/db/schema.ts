@@ -8,3 +8,4 @@ export * from './schema/knowledge';
 export * from './schema/imports';
 export * from './schema/oauth';
 export * from './schema/execution';
+export * from './schema/evidence';

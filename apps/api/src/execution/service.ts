@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { and, asc, desc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
 import type { AuthUser } from '../auth';
 import { DatabaseService } from '../db/database.service';
-import { agentRuns, gitSlices, githubConnections, githubRepositories, knowledgeArtifacts, nativeSessions, runCheckpoints, runEvents, tasks } from '../db/schema';
+import { agentRuns, evidenceArtifacts, evidenceEventLinks, gitSlices, githubConnections, githubRepositories, knowledgeArtifacts, nativeSessions, runCheckpoints, runEvents, tasks } from '../db/schema';
 import { WorkspaceService } from '../workspace.service';
 import type { AppendRunEventInput, CheckpointInput, FinishRunInput, GitSliceInput, NativeSessionInput, StartRunInput } from './inputs';
 
@@ -55,10 +55,19 @@ export class ExecutionService {
     const run = await this.requireRun(workspaceId, user, runId);
     if (run.status !== 'running') throw new ConflictException('Events cannot be appended after a run has ended.');
     await this.requireArtifacts(workspaceId, input.artifactId ? [input.artifactId] : []);
-    const [created] = await this.database.db.insert(runEvents).values({ workspaceId, runId, type: input.type, idempotencyKey: input.idempotencyKey, payload: input.payload, artifactId: input.artifactId ?? null, occurredAt: new Date(input.occurredAt) }).onConflictDoNothing().returning();
+    await this.requireEvidenceArtifacts(workspaceId, input.evidenceArtifactId ? [input.evidenceArtifactId] : [], runId, run.taskId);
+    const [created] = await this.database.db.transaction(async (tx) => {
+      const created = await tx.insert(runEvents).values({ workspaceId, runId, type: input.type, idempotencyKey: input.idempotencyKey, payload: input.payload, artifactId: input.artifactId ?? null, occurredAt: new Date(input.occurredAt) }).onConflictDoNothing().returning();
+      if (created[0] && input.evidenceArtifactId) await tx.insert(evidenceEventLinks).values({ evidenceArtifactId: input.evidenceArtifactId, runEventId: created[0].id }).onConflictDoNothing();
+      return created;
+    });
     if (created) return created;
     const [existing] = await this.database.db.select().from(runEvents).where(and(eq(runEvents.workspaceId, workspaceId), eq(runEvents.idempotencyKey, input.idempotencyKey))).limit(1);
-    if (!existing || existing.runId !== runId || existing.type !== input.type) throw new ConflictException('The idempotency key is already associated with a different run event.');
+    if (!existing || existing.runId !== runId || existing.type !== input.type || existing.artifactId !== (input.artifactId ?? null) || existing.occurredAt.getTime() !== new Date(input.occurredAt).getTime() || canonicalJson(existing.payload) !== canonicalJson(input.payload)) throw new ConflictException('The idempotency key is already associated with a different run event.');
+    if (input.evidenceArtifactId) {
+      const [link] = await this.database.db.select().from(evidenceEventLinks).where(and(eq(evidenceEventLinks.evidenceArtifactId, input.evidenceArtifactId), eq(evidenceEventLinks.runEventId, existing.id))).limit(1);
+      if (!link) throw new ConflictException('The idempotency key is already associated with a run event that has different evidence.');
+    }
     return existing;
   }
 
@@ -79,6 +88,7 @@ export class ExecutionService {
   async createCheckpoint(workspaceId: string, user: AuthUser, runId: string, input: CheckpointInput) {
     const run = await this.requireRun(workspaceId, user, runId);
     await this.requireArtifacts(workspaceId, input.artifactIds);
+    await this.requireEvidenceArtifacts(workspaceId, input.evidenceArtifactIds, runId, run.taskId);
     await this.requireActiveDecisions(workspaceId, input.activeDecisionIds);
     if (input.gitSliceId) {
       const [slice] = await this.database.db.select().from(gitSlices).where(and(eq(gitSlices.id, input.gitSliceId), eq(gitSlices.workspaceId, workspaceId), eq(gitSlices.runId, runId))).limit(1);
@@ -91,7 +101,7 @@ export class ExecutionService {
     return this.database.db.transaction(async (tx) => {
       await tx.execute(sql`SELECT id FROM agent_runs WHERE id = ${runId}::uuid FOR UPDATE`);
       const [latest] = await tx.select({ sequence: runCheckpoints.sequence }).from(runCheckpoints).where(eq(runCheckpoints.runId, runId)).orderBy(desc(runCheckpoints.sequence)).limit(1);
-      const [checkpoint] = await tx.insert(runCheckpoints).values({ workspaceId, taskId: run.taskId, runId, sequence: (latest?.sequence ?? 0) + 1, gitSliceId: input.gitSliceId ?? null, objective: input.objective, summary: input.summary, completedWork: input.completedWork, remainingWork: input.remainingWork, activeDecisionIds: input.activeDecisionIds, relevantPaths: input.relevantPaths, failures: input.failures, lastVerified: input.lastVerified, nextAction: input.nextAction, artifactIds: input.artifactIds, assumptions: input.assumptions, coveredEventSequenceStart: input.coveredEventSequenceStart ?? null, coveredEventSequenceEnd: input.coveredEventSequenceEnd ?? null, contextPackHash: input.contextPackHash ?? null, createdByUserId: user.id }).returning();
+      const [checkpoint] = await tx.insert(runCheckpoints).values({ workspaceId, taskId: run.taskId, runId, sequence: (latest?.sequence ?? 0) + 1, gitSliceId: input.gitSliceId ?? null, objective: input.objective, summary: input.summary, completedWork: input.completedWork, remainingWork: input.remainingWork, activeDecisionIds: input.activeDecisionIds, relevantPaths: input.relevantPaths, failures: input.failures, lastVerified: input.lastVerified, nextAction: input.nextAction, artifactIds: input.artifactIds, evidenceArtifactIds: input.evidenceArtifactIds, assumptions: input.assumptions, coveredEventSequenceStart: input.coveredEventSequenceStart ?? null, coveredEventSequenceEnd: input.coveredEventSequenceEnd ?? null, contextPackHash: input.contextPackHash ?? null, createdByUserId: user.id }).returning();
       return checkpoint!;
     });
   }
@@ -137,6 +147,13 @@ export class ExecutionService {
     if (rows.length !== uniqueIds.length) throw new BadRequestException('Every active decision must be a current, verified canonical decision in this workspace.');
   }
 
+  private async requireEvidenceArtifacts(workspaceId: string, artifactIds: string[], runId?: string, taskId?: string) {
+    const uniqueIds = [...new Set(artifactIds)];
+    if (!uniqueIds.length) return;
+    const rows = await this.database.db.select({ id: evidenceArtifacts.id, runId: evidenceArtifacts.runId, taskId: evidenceArtifacts.taskId }).from(evidenceArtifacts).where(and(eq(evidenceArtifacts.workspaceId, workspaceId), inArray(evidenceArtifacts.id, uniqueIds)));
+    if (rows.length !== uniqueIds.length || (runId && rows.some((entry) => entry.runId && entry.runId !== runId)) || (taskId && rows.some((entry) => entry.taskId && entry.taskId !== taskId))) throw new BadRequestException('Every exact evidence artifact must exist in this workspace and be compatible with the run and task.');
+  }
+
   private async validateGitSliceReferences(workspaceId: string, input?: GitSliceInput) {
     if (input?.patchArtifactId) await this.requireArtifacts(workspaceId, [input.patchArtifactId]);
     if (input?.githubRepositoryId) {
@@ -160,4 +177,10 @@ export class ExecutionService {
     const [existing] = await executor.select().from(nativeSessions).where(and(eq(nativeSessions.runId, runId), eq(nativeSessions.provider, provider), eq(nativeSessions.nativeSessionId, input.nativeSessionId))).limit(1);
     return existing!;
   }
+}
+
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  if (value && typeof value === 'object') return `{${Object.entries(value as Record<string, unknown>).sort(([left], [right]) => left.localeCompare(right)).map(([key, entry]) => `${JSON.stringify(key)}:${canonicalJson(entry)}`).join(',')}}`;
+  return JSON.stringify(value);
 }
