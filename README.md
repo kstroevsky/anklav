@@ -6,14 +6,14 @@ Anklav is a self-hosted control room for software-development work: projects pro
 
 Requirements: Node 22+, pnpm 11+, and Docker Desktop (or another Docker daemon).
 
-1. Copy `.env.example` to `.env` and replace every secret value.
+1. Copy `.env.example` to `.env` and replace every secret value. The setup token is the `ANKLAV_SETUP_TOKEN` value in that file; generate one with `openssl rand -base64 32`.
 2. Start the stack:
 
    ```bash
    docker compose up --build
    ```
 
-3. Open `http://localhost:8080`, enter `ANKLAV_SETUP_TOKEN`, and create the initial instance administrator and workspace.
+3. Open `http://localhost:8080`, enter the configured setup-token value, and create the initial instance administrator and workspace.
 
 The API is proxied through the same origin at `/api/v1`; Swagger is available at `http://localhost:8080/api/docs`.
 
