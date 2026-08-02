@@ -1751,6 +1751,60 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceId}/native-sessions/{nativeSessionId}": {
+      "get": {
+        "operationId": "ExecutionController_getNativeSession",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Execution"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/native-sessions/{nativeSessionId}/items": {
+      "get": {
+        "operationId": "ExecutionController_listNativeSessionItems",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Execution"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/native-sessions/{nativeSessionId}/ingestions": {
+      "get": {
+        "operationId": "ExecutionController_listNativeSessionIngestions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Execution"
+        ]
+      },
+      "post": {
+        "operationId": "ExecutionController_ingestNativeSession",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Execution"
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceId}/runs/{runId}/lease": {
       "post": {
         "operationId": "ExecutionController_claimLease",

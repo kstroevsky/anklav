@@ -1,6 +1,6 @@
 import { bigint, index, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { createdAt, id } from './common';
-import { agentRuns, runEvents } from './execution';
+import { agentRuns, nativeSessions, runEvents } from './execution';
 import { users, workspaces } from './identity';
 import { projects, tasks } from './work';
 
@@ -37,3 +37,10 @@ export const evidenceEventLinks = pgTable('evidence_event_links', {
   runEventId: uuid('run_event_id').notNull().references(() => runEvents.id),
   createdAt: createdAt(),
 }, (table) => [primaryKey({ columns: [table.evidenceArtifactId, table.runEventId] }), index('evidence_event_links_event_index').on(table.runEventId)]);
+
+export const nativeSessionEvidence = pgTable('native_session_evidence', {
+  nativeSessionId: uuid('native_session_id').notNull().references(() => nativeSessions.id),
+  evidenceArtifactId: uuid('evidence_artifact_id').notNull().references(() => evidenceArtifacts.id),
+  role: text('role').notNull().default('archive'),
+  createdAt: createdAt(),
+}, (table) => [primaryKey({ columns: [table.nativeSessionId, table.evidenceArtifactId] }), index('native_session_evidence_artifact_index').on(table.evidenceArtifactId)]);

@@ -30,8 +30,65 @@ export const nativeSessionInput = z.object({
   clientVersion: z.string().trim().min(1).max(160).nullable().optional(),
   protocolVersion: z.string().trim().min(1).max(160).nullable().optional(),
   archiveArtifactId: z.string().uuid().nullable().optional(),
+  archiveEvidenceArtifactId: z.string().uuid().nullable().optional(),
   resumability: z.enum(['unknown', 'resumable', 'requires_reconciliation', 'not_resumable']).default('unknown'),
+  sourceKind: z.enum(['manual', 'claude_bundle', 'codex_app_server', 'rollout', 'jsonl']).default('manual'),
+  manifest: z.record(z.string(), z.unknown()).default({}),
+  pathMappings: stringMap,
   metadata: z.record(z.string(), z.unknown()).default({}),
+});
+
+const nativeTurnInput = z.object({
+  nativeTurnId: z.string().trim().min(1).max(1_000),
+  parentNativeTurnId: z.string().trim().min(1).max(1_000).nullable().optional(),
+  sequence: z.number().int().positive(),
+  status: z.enum(['unknown', 'running', 'completed', 'interrupted', 'failed']).default('unknown'),
+  startedAt: z.string().datetime({ offset: true }).nullable().optional(),
+  completedAt: z.string().datetime({ offset: true }).nullable().optional(),
+  metadata: z.record(z.string(), z.unknown()).default({}),
+});
+
+const nativeItemInput = z.object({
+  nativeItemId: z.string().trim().min(1).max(1_000),
+  nativeTurnId: z.string().trim().min(1).max(1_000).nullable().optional(),
+  parentNativeItemId: z.string().trim().min(1).max(1_000).nullable().optional(),
+  relatedNativeItemId: z.string().trim().min(1).max(1_000).nullable().optional(),
+  relationshipType: z.enum(['tool_result_for', 'command_output_for', 'approval_response_for', 'patch_for', 'subagent_result_for', 'summary_covers']).nullable().optional(),
+  sequence: z.number().int().positive(),
+  type: z.enum(['user_instruction', 'assistant_message', 'reasoning_summary', 'tool_call', 'tool_result', 'shell_command', 'command_output', 'file_edit', 'patch', 'approval_request', 'approval_response', 'compaction_marker', 'interruption', 'error', 'usage_report', 'subagent_task', 'subagent_result', 'other']),
+  role: z.enum(['user', 'assistant', 'system', 'tool']).nullable().optional(),
+  status: z.enum(['running', 'complete', 'interrupted', 'failed']).default('complete'),
+  summary: z.string().max(20_000).default(''),
+  redactedContent: z.record(z.string(), z.unknown()).default({}),
+  contentHash: hash,
+  redactionStatus: z.enum(['unreviewed', 'redacted', 'safe', 'withheld']).default('unreviewed'),
+  correlationId: z.string().trim().min(1).max(1_000).nullable().optional(),
+  occurredAt: z.string().datetime({ offset: true }),
+  metadata: z.record(z.string(), z.unknown()).default({}),
+});
+
+export const nativeSessionIngestionInput = z.object({
+  idempotencyKey: z.string().trim().min(8).max(500),
+  sourceRevision: z.string().trim().min(1).max(1_000),
+  parserVersion: z.string().trim().min(1).max(160),
+  fromCursor: z.string().max(2_000).nullable().optional(),
+  toCursor: z.string().max(2_000).nullable().optional(),
+  complete: z.boolean().default(false),
+  manifest: z.record(z.string(), z.unknown()).default({}),
+  pathMappings: stringMap,
+  parseErrors: z.array(z.record(z.string(), z.unknown())).max(1_000).default([]),
+  turns: z.array(nativeTurnInput).max(1_000).default([]),
+  items: z.array(nativeItemInput).max(2_000).default([]),
+}).superRefine((value, context) => {
+  const turnIds = value.turns.map((entry) => entry.nativeTurnId);
+  const turnSequences = value.turns.map((entry) => entry.sequence);
+  const itemIds = value.items.map((entry) => entry.nativeItemId);
+  const itemSequences = value.items.map((entry) => entry.sequence);
+  if (new Set(turnIds).size !== turnIds.length) context.addIssue({ code: 'custom', message: 'Native turn IDs must be unique within an ingestion batch.', path: ['turns'] });
+  if (new Set(turnSequences).size !== turnSequences.length) context.addIssue({ code: 'custom', message: 'Native turn sequences must be unique within an ingestion batch.', path: ['turns'] });
+  if (new Set(itemIds).size !== itemIds.length) context.addIssue({ code: 'custom', message: 'Native item IDs must be unique within an ingestion batch.', path: ['items'] });
+  if (new Set(itemSequences).size !== itemSequences.length) context.addIssue({ code: 'custom', message: 'Native item sequences must be unique within an ingestion batch.', path: ['items'] });
+  for (const [index, item] of value.items.entries()) if ((item.relatedNativeItemId == null) !== (item.relationshipType == null)) context.addIssue({ code: 'custom', message: 'Related item and relationship type must be provided together.', path: ['items', index] });
 });
 
 export const startRunInput = z.object({
@@ -103,6 +160,7 @@ export const renewLeaseInput = z.object({ ttlSeconds: z.number().int().min(60).m
 
 export type GitSliceInput = z.infer<typeof gitSliceInput>;
 export type NativeSessionInput = z.infer<typeof nativeSessionInput>;
+export type NativeSessionIngestionInput = z.infer<typeof nativeSessionIngestionInput>;
 export type StartRunInput = z.infer<typeof startRunInput>;
 export type AppendRunEventInput = z.infer<typeof appendRunEventInput>;
 export type CheckpointInput = z.infer<typeof checkpointInput>;

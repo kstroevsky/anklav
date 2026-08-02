@@ -13,6 +13,7 @@ import { LabelEditor } from '../../components/organisms/LabelEditor';
 import { RelationEditor } from '../../components/organisms/RelationEditor';
 import { Checklist } from './Checklist';
 import { TaskProperties } from './TaskProperties';
+import { TaskRuns } from './TaskRuns';
 import { TaskGitHub } from '../github/TaskGitHub';
 import { relativeTime } from '../../utils/formatting';
 
@@ -95,6 +96,7 @@ export function TaskDetail({ workspace, taskId, states }: { workspace: Workspace
         <Meta label="Due" value={task.dueDate ?? '—'} />
       </section>
       <TaskProperties workspace={workspace} task={task} save={(body) => update.mutate(body)} />
+      <TaskRuns workspace={workspace} taskId={task.id} />
       <Checklist workspace={workspace} task={task} />
       <EditableMarkdown title="Verification performed" value={task.verificationPerformed} empty="Record the verification you performed." onSave={(verificationPerformed) => update.mutate({ verificationPerformed })} />
       <EditableMarkdown title="Completion evidence" value={task.completionEvidence} empty="Record completion evidence." onSave={(completionEvidence) => update.mutate({ completionEvidence })} />

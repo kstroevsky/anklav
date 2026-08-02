@@ -1,10 +1,11 @@
+import { createHash } from 'node:crypto';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, desc, eq, gt, inArray, isNull, lte, sql } from 'drizzle-orm';
 import type { AuthUser } from '../auth';
 import { DatabaseService } from '../db/database.service';
-import { agentRuns, evidenceArtifacts, evidenceEventLinks, gitSlices, githubConnections, githubRepositories, knowledgeArtifacts, nativeSessions, runCheckpoints, runEvents, taskLeases, tasks } from '../db/schema';
+import { agentRuns, evidenceArtifacts, evidenceEventLinks, gitSlices, githubConnections, githubRepositories, knowledgeArtifacts, nativeSessionEvidence, nativeSessionIngestions, nativeSessionItems, nativeSessions, nativeSessionTurns, runCheckpoints, runEvents, taskLeases, tasks } from '../db/schema';
 import { WorkspaceService } from '../workspace.service';
-import type { AppendRunEventInput, CheckpointInput, ClaimLeaseInput, FinishRunInput, GitSliceInput, NativeSessionInput, StartRunInput } from './inputs';
+import type { AppendRunEventInput, CheckpointInput, ClaimLeaseInput, FinishRunInput, GitSliceInput, NativeSessionIngestionInput, NativeSessionInput, StartRunInput } from './inputs';
 
 @Injectable()
 export class ExecutionService {
@@ -12,7 +13,10 @@ export class ExecutionService {
 
   async listTaskRuns(workspaceId: string, user: AuthUser, taskId: string) {
     await this.requireTask(workspaceId, user, taskId);
-    return this.database.db.select().from(agentRuns).where(and(eq(agentRuns.workspaceId, workspaceId), eq(agentRuns.taskId, taskId))).orderBy(desc(agentRuns.startedAt), desc(agentRuns.id));
+    const runs = await this.database.db.select().from(agentRuns).where(and(eq(agentRuns.workspaceId, workspaceId), eq(agentRuns.taskId, taskId))).orderBy(desc(agentRuns.startedAt), desc(agentRuns.id));
+    if (!runs.length) return [];
+    const sessions = await this.database.db.select().from(nativeSessions).where(inArray(nativeSessions.runId, runs.map((run) => run.id))).orderBy(asc(nativeSessions.createdAt));
+    return runs.map((run) => ({ ...run, nativeSessions: sessions.filter((session) => session.runId === run.id) }));
   }
 
   async getRun(workspaceId: string, user: AuthUser, runId: string) {
@@ -32,6 +36,108 @@ export class ExecutionService {
     const hasMore = rows.length > 500;
     const items = rows.slice(0, 500);
     return { items, nextAfter: hasMore ? items.at(-1)!.sequence : null };
+  }
+
+  async getNativeSession(workspaceId: string, user: AuthUser, nativeSessionId: string) {
+    const session = await this.requireNativeSession(workspaceId, user, nativeSessionId);
+    const [turns, ingestions, archiveEvidence] = await Promise.all([
+      this.database.db.select().from(nativeSessionTurns).where(eq(nativeSessionTurns.nativeSessionId, nativeSessionId)).orderBy(asc(nativeSessionTurns.sequence)),
+      this.database.db.select().from(nativeSessionIngestions).where(eq(nativeSessionIngestions.nativeSessionId, nativeSessionId)).orderBy(desc(nativeSessionIngestions.ingestedAt)),
+      this.database.db.select({ evidenceArtifactId: nativeSessionEvidence.evidenceArtifactId, role: nativeSessionEvidence.role }).from(nativeSessionEvidence).where(eq(nativeSessionEvidence.nativeSessionId, nativeSessionId)),
+    ]);
+    return { ...session, turns, ingestions, archiveEvidence };
+  }
+
+  async listNativeSessionItems(workspaceId: string, user: AuthUser, nativeSessionId: string, after?: number) {
+    await this.requireNativeSession(workspaceId, user, nativeSessionId);
+    const rows = await this.database.db.select().from(nativeSessionItems).where(and(eq(nativeSessionItems.nativeSessionId, nativeSessionId), after ? gt(nativeSessionItems.sequence, after) : undefined)).orderBy(asc(nativeSessionItems.sequence)).limit(501);
+    const hasMore = rows.length > 500;
+    const items = rows.slice(0, 500).map((item) => item.redactionStatus === 'safe' || item.redactionStatus === 'redacted' ? { ...item, contentWithheld: false } : { ...item, summary: '', redactedContent: {}, metadata: {}, contentWithheld: true });
+    return { items, nextAfter: hasMore ? items.at(-1)!.sequence : null };
+  }
+
+  async listNativeSessionIngestions(workspaceId: string, user: AuthUser, nativeSessionId: string) {
+    await this.requireNativeSession(workspaceId, user, nativeSessionId);
+    return this.database.db.select().from(nativeSessionIngestions).where(eq(nativeSessionIngestions.nativeSessionId, nativeSessionId)).orderBy(desc(nativeSessionIngestions.ingestedAt));
+  }
+
+  async ingestNativeSession(workspaceId: string, user: AuthUser, nativeSessionId: string, input: NativeSessionIngestionInput) {
+    await this.requireNativeSession(workspaceId, user, nativeSessionId);
+    const payloadHash = nativeSessionIngestionHash(input);
+    return this.database.db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`${workspaceId}:${input.idempotencyKey}`}))`);
+      const [idempotent] = await tx.select().from(nativeSessionIngestions).where(and(eq(nativeSessionIngestions.workspaceId, workspaceId), eq(nativeSessionIngestions.idempotencyKey, input.idempotencyKey))).limit(1);
+      if (idempotent) {
+        if (idempotent.nativeSessionId !== nativeSessionId || idempotent.payloadHash !== payloadHash) throw new ConflictException('The ingestion idempotency key is already associated with different content.');
+        return { ingestion: idempotent, replayed: true };
+      }
+      await tx.execute(sql`SELECT id FROM native_sessions WHERE id = ${nativeSessionId}::uuid FOR UPDATE`);
+      const [lockedSession] = await tx.select().from(nativeSessions).where(eq(nativeSessions.id, nativeSessionId)).limit(1);
+      if (!lockedSession) throw new NotFoundException('Native session not found.');
+      const [revision] = await tx.select().from(nativeSessionIngestions).where(and(eq(nativeSessionIngestions.nativeSessionId, nativeSessionId), eq(nativeSessionIngestions.sourceRevision, input.sourceRevision))).limit(1);
+      if (revision) {
+        if (revision.payloadHash !== payloadHash) throw new ConflictException('The source revision is already associated with different content.');
+        return { ingestion: revision, replayed: true };
+      }
+
+      const existingTurns = await tx.select().from(nativeSessionTurns).where(eq(nativeSessionTurns.nativeSessionId, nativeSessionId));
+      const turnsByNativeId = new Map(existingTurns.map((turn) => [turn.nativeTurnId, turn]));
+      const turnsBySequence = new Map(existingTurns.map((turn) => [turn.sequence, turn]));
+      for (const turn of input.turns) {
+        const byId = turnsByNativeId.get(turn.nativeTurnId);
+        const bySequence = turnsBySequence.get(turn.sequence);
+        if ((byId && (byId.sequence !== turn.sequence || byId.parentNativeTurnId !== (turn.parentNativeTurnId ?? null))) || (bySequence && bySequence.nativeTurnId !== turn.nativeTurnId)) throw new ConflictException(`Native turn ${turn.nativeTurnId} conflicts with previously ingested structure.`);
+        if (byId) {
+          if (['completed', 'interrupted', 'failed'].includes(byId.status) && byId.status !== turn.status) throw new ConflictException(`Native turn ${turn.nativeTurnId} cannot change after reaching a terminal status.`);
+          const [updated] = await tx.update(nativeSessionTurns).set({ status: turn.status, startedAt: turn.startedAt ? new Date(turn.startedAt) : null, completedAt: turn.completedAt ? new Date(turn.completedAt) : null, metadata: turn.metadata, updatedAt: new Date() }).where(eq(nativeSessionTurns.id, byId.id)).returning();
+          turnsByNativeId.set(turn.nativeTurnId, updated!);
+        } else {
+          const [created] = await tx.insert(nativeSessionTurns).values({ workspaceId, nativeSessionId, nativeTurnId: turn.nativeTurnId, parentNativeTurnId: turn.parentNativeTurnId ?? null, sequence: turn.sequence, status: turn.status, startedAt: turn.startedAt ? new Date(turn.startedAt) : null, completedAt: turn.completedAt ? new Date(turn.completedAt) : null, metadata: turn.metadata }).returning();
+          turnsByNativeId.set(turn.nativeTurnId, created!);
+          turnsBySequence.set(turn.sequence, created!);
+        }
+      }
+      for (const turn of input.turns) if (turn.parentNativeTurnId && !turnsByNativeId.has(turn.parentNativeTurnId)) throw new BadRequestException(`Native turn ${turn.nativeTurnId} references an unknown parent turn.`);
+
+      const existingItems = await tx.select().from(nativeSessionItems).where(eq(nativeSessionItems.nativeSessionId, nativeSessionId));
+      const itemsByNativeId = new Map(existingItems.map((item) => [item.nativeItemId, item]));
+      const itemsBySequence = new Map(existingItems.map((item) => [item.sequence, item]));
+      const newItemIds = new Set<string>();
+      for (const item of [...input.items].sort((left, right) => left.sequence - right.sequence)) {
+        const byId = itemsByNativeId.get(item.nativeItemId);
+        const bySequence = itemsBySequence.get(item.sequence);
+        const turn = item.nativeTurnId ? turnsByNativeId.get(item.nativeTurnId) : null;
+        if (item.nativeTurnId && !turn) throw new BadRequestException(`Native item ${item.nativeItemId} references an unknown turn.`);
+        const immutable = { turnId: turn?.id ?? null, parentNativeItemId: item.parentNativeItemId ?? null, sequence: item.sequence, type: item.type, role: item.role ?? null, status: item.status, summary: item.summary, redactedContent: item.redactedContent, contentHash: item.contentHash, redactionStatus: item.redactionStatus, correlationId: item.correlationId ?? null, occurredAt: new Date(item.occurredAt), metadata: item.metadata };
+        if (bySequence && bySequence.nativeItemId !== item.nativeItemId) throw new ConflictException(`Native item sequence ${item.sequence} is already occupied.`);
+        if (byId) {
+          const comparable = { turnId: byId.turnId, parentNativeItemId: byId.parentNativeItemId, sequence: byId.sequence, type: byId.type, role: byId.role, status: byId.status, summary: byId.summary, redactedContent: byId.redactedContent, contentHash: byId.contentHash, redactionStatus: byId.redactionStatus, correlationId: byId.correlationId, occurredAt: byId.occurredAt, metadata: byId.metadata };
+          if (canonicalJson(comparable) !== canonicalJson(immutable)) throw new ConflictException(`Native item ${item.nativeItemId} conflicts with previously ingested immutable content.`);
+        } else {
+          const [created] = await tx.insert(nativeSessionItems).values({ workspaceId, nativeSessionId, nativeItemId: item.nativeItemId, ...immutable }).returning();
+          itemsByNativeId.set(item.nativeItemId, created!);
+          itemsBySequence.set(item.sequence, created!);
+          newItemIds.add(created!.id);
+        }
+      }
+      for (const item of input.items) {
+        const stored = itemsByNativeId.get(item.nativeItemId)!;
+        if (item.parentNativeItemId && !itemsByNativeId.has(item.parentNativeItemId)) throw new BadRequestException(`Native item ${item.nativeItemId} references an unknown parent item.`);
+        const related = item.relatedNativeItemId ? itemsByNativeId.get(item.relatedNativeItemId) : null;
+        if (item.relatedNativeItemId && !related) throw new BadRequestException(`Native item ${item.nativeItemId} references an unknown related item.`);
+        if (!newItemIds.has(stored.id)) {
+          if (stored.relatedItemId !== (related?.id ?? null) || stored.relationshipType !== (item.relationshipType ?? null)) throw new ConflictException(`Native item ${item.nativeItemId} conflicts with its previously ingested relationship.`);
+        } else if (related) {
+          await tx.update(nativeSessionItems).set({ relatedItemId: related.id, relationshipType: item.relationshipType ?? null }).where(eq(nativeSessionItems.id, stored.id));
+        }
+      }
+
+      const status = input.parseErrors.length ? 'partial' : input.complete ? 'complete' : 'ingesting';
+      const [ingestion] = await tx.insert(nativeSessionIngestions).values({ workspaceId, nativeSessionId, idempotencyKey: input.idempotencyKey, payloadHash, sourceRevision: input.sourceRevision, parserVersion: input.parserVersion, fromCursor: input.fromCursor ?? null, toCursor: input.toCursor ?? null, status, turnCount: input.turns.length, itemCount: input.items.length, errors: input.parseErrors, manifest: input.manifest }).returning();
+      const [itemTotal] = await tx.select({ count: sql<number>`count(*)::int` }).from(nativeSessionItems).where(eq(nativeSessionItems.nativeSessionId, nativeSessionId));
+      await tx.update(nativeSessions).set({ parserVersion: input.parserVersion, sourceRevision: input.sourceRevision, ingestionStatus: status, lastNativeCursor: input.toCursor ?? lockedSession.lastNativeCursor, lastIngestedAt: new Date(), recordCount: itemTotal?.count ?? 0, manifest: { ...lockedSession.manifest, ...input.manifest }, pathMappings: { ...lockedSession.pathMappings, ...input.pathMappings }, parseErrors: input.parseErrors, updatedAt: new Date() }).where(eq(nativeSessions.id, nativeSessionId));
+      return { ingestion: ingestion!, replayed: false };
+    });
   }
 
   async listTaskLeases(workspaceId: string, user: AuthUser, taskId: string) {
@@ -83,7 +189,7 @@ export class ExecutionService {
       if (parent.taskId !== taskId) throw new BadRequestException('A parent run must execute the same task. Use a child task for delegated work with a different objective.');
     }
     await this.validateGitSliceReferences(workspaceId, input.startingGitSlice);
-    await this.validateNativeSessionReferences(workspaceId, input.nativeSession);
+    await this.validateNativeSessionReferences(workspaceId, input.nativeSession, undefined, taskId);
     return this.database.db.transaction(async (tx) => {
       const [run] = await tx.insert(agentRuns).values({ workspaceId, taskId, parentRunId: input.parentRunId ?? null, provider: input.provider, client: input.client, agentType: input.agentType, model: input.model ?? null, reasoningConfig: input.reasoningConfig, machineIdentity: input.machineIdentity, modifiesCode: input.modifiesCode, permissions: input.permissions, createdByUserId: user.id }).returning();
       const startingGitSlice = input.startingGitSlice ? await this.insertGitSlice(tx, workspaceId, taskId, run!.id, 'start', user.id, input.startingGitSlice) : null;
@@ -122,7 +228,7 @@ export class ExecutionService {
   async attachNativeSession(workspaceId: string, user: AuthUser, runId: string, input: NativeSessionInput) {
     const run = await this.requireRun(workspaceId, user, runId);
     if (run.status !== 'running') throw new ConflictException('A native session cannot be attached after a run has ended.');
-    await this.validateNativeSessionReferences(workspaceId, input);
+    await this.validateNativeSessionReferences(workspaceId, input, runId, run.taskId);
     return this.insertNativeSession(this.database.db, workspaceId, runId, run.provider, input);
   }
 
@@ -175,6 +281,13 @@ export class ExecutionService {
     return run;
   }
 
+  private async requireNativeSession(workspaceId: string, user: AuthUser, nativeSessionId: string) {
+    await this.workspaces.requireMembership(workspaceId, user);
+    const [session] = await this.database.db.select().from(nativeSessions).where(and(eq(nativeSessions.id, nativeSessionId), eq(nativeSessions.workspaceId, workspaceId))).limit(1);
+    if (!session) throw new NotFoundException('Native session not found.');
+    return session;
+  }
+
   private async requireArtifacts(workspaceId: string, artifactIds: string[]) {
     const uniqueIds = [...new Set(artifactIds)];
     if (!uniqueIds.length) return;
@@ -204,8 +317,9 @@ export class ExecutionService {
     }
   }
 
-  private async validateNativeSessionReferences(workspaceId: string, input?: NativeSessionInput) {
+  private async validateNativeSessionReferences(workspaceId: string, input?: NativeSessionInput, runId?: string, taskId?: string) {
     if (input?.archiveArtifactId) await this.requireArtifacts(workspaceId, [input.archiveArtifactId]);
+    if (input?.archiveEvidenceArtifactId) await this.requireEvidenceArtifacts(workspaceId, [input.archiveEvidenceArtifactId], runId, taskId);
   }
 
   private async insertGitSlice(executor: any, workspaceId: string, taskId: string, runId: string, phase: 'start' | 'end' | 'checkpoint', userId: string, input: GitSliceInput) {
@@ -214,10 +328,11 @@ export class ExecutionService {
   }
 
   private async insertNativeSession(executor: any, workspaceId: string, runId: string, provider: StartRunInput['provider'], input: NativeSessionInput) {
-    const [session] = await executor.insert(nativeSessions).values({ workspaceId, runId, provider, nativeSessionId: input.nativeSessionId, parentNativeSessionId: input.parentNativeSessionId ?? null, clientVersion: input.clientVersion ?? null, protocolVersion: input.protocolVersion ?? null, archiveArtifactId: input.archiveArtifactId ?? null, resumability: input.resumability, metadata: input.metadata }).onConflictDoNothing().returning();
-    if (session) return session;
-    const [existing] = await executor.select().from(nativeSessions).where(and(eq(nativeSessions.runId, runId), eq(nativeSessions.provider, provider), eq(nativeSessions.nativeSessionId, input.nativeSessionId))).limit(1);
-    return existing!;
+    const [session] = await executor.insert(nativeSessions).values({ workspaceId, runId, provider, nativeSessionId: input.nativeSessionId, parentNativeSessionId: input.parentNativeSessionId ?? null, clientVersion: input.clientVersion ?? null, protocolVersion: input.protocolVersion ?? null, archiveArtifactId: input.archiveArtifactId ?? null, resumability: input.resumability, sourceKind: input.sourceKind, manifest: input.manifest, pathMappings: input.pathMappings, metadata: input.metadata }).onConflictDoNothing().returning();
+    const stored = session ?? (await executor.select().from(nativeSessions).where(and(eq(nativeSessions.workspaceId, workspaceId), eq(nativeSessions.provider, provider), eq(nativeSessions.nativeSessionId, input.nativeSessionId))).limit(1))[0];
+    if (!stored || stored.runId !== runId) throw new ConflictException('This provider session is already attached to a different execution attempt.');
+    if (input.archiveEvidenceArtifactId) await executor.insert(nativeSessionEvidence).values({ nativeSessionId: stored.id, evidenceArtifactId: input.archiveEvidenceArtifactId, role: 'source_archive' }).onConflictDoNothing();
+    return stored;
   }
 
   private overlapWarnings(active: Array<typeof taskLeases.$inferSelect>, input: Pick<ClaimLeaseInput, 'writeAccess' | 'pathScope'>) {
@@ -228,9 +343,15 @@ export class ExecutionService {
 }
 
 function canonicalJson(value: unknown): string {
+  if (value instanceof Date) return JSON.stringify(value.toISOString());
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
   if (value && typeof value === 'object') return `{${Object.entries(value as Record<string, unknown>).sort(([left], [right]) => left.localeCompare(right)).map(([key, entry]) => `${JSON.stringify(key)}:${canonicalJson(entry)}`).join(',')}}`;
   return JSON.stringify(value);
+}
+
+export function nativeSessionIngestionHash(value: unknown): string {
+  const { idempotencyKey: _idempotencyKey, ...content } = value as NativeSessionIngestionInput;
+  return createHash('sha256').update(canonicalJson(content)).digest('hex');
 }
 
 export function normalizedPaths(paths: string[]): string[] {

@@ -34,11 +34,11 @@ export type ContextPackOptions = {
 };
 
 const SECTION_POLICIES: Record<ContextPackProjection, readonly string[]> = {
-  max: ['generatedFrom', 'taskContract', 'operationalGitState', 'taskCheckpoint', 'exactEvidence', 'activeRuns', 'coordinationLeases', 'currentClaims', 'project', 'flows', 'milestones', 'acceptedDecisions', 'verifiedArtifacts', 'repositories', 'linkedGitHub', 'taskRelations', 'dependencies', 'sourceProvenance', 'latestHandoff', 'humanReview', 'blockers', 'explicitNonGoals', 'semanticRetrieval'],
-  standard: ['generatedFrom', 'taskContract', 'operationalGitState', 'taskCheckpoint', 'exactEvidence', 'activeRuns', 'coordinationLeases', 'currentClaims', 'project', 'flows', 'milestones', 'acceptedDecisions', 'verifiedArtifacts', 'repositories', 'linkedGitHub', 'taskRelations', 'dependencies', 'latestHandoff', 'humanReview', 'blockers', 'explicitNonGoals', 'semanticRetrieval'],
+  max: ['generatedFrom', 'taskContract', 'operationalGitState', 'taskCheckpoint', 'exactEvidence', 'activeRuns', 'nativeSessions', 'coordinationLeases', 'currentClaims', 'project', 'flows', 'milestones', 'acceptedDecisions', 'verifiedArtifacts', 'repositories', 'linkedGitHub', 'taskRelations', 'dependencies', 'sourceProvenance', 'latestHandoff', 'humanReview', 'blockers', 'explicitNonGoals', 'semanticRetrieval'],
+  standard: ['generatedFrom', 'taskContract', 'operationalGitState', 'taskCheckpoint', 'exactEvidence', 'activeRuns', 'nativeSessions', 'coordinationLeases', 'currentClaims', 'project', 'flows', 'milestones', 'acceptedDecisions', 'verifiedArtifacts', 'repositories', 'linkedGitHub', 'taskRelations', 'dependencies', 'latestHandoff', 'humanReview', 'blockers', 'explicitNonGoals', 'semanticRetrieval'],
   low: ['generatedFrom', 'taskContract', 'operationalGitState', 'taskCheckpoint', 'exactEvidence', 'coordinationLeases', 'currentClaims', 'project', 'acceptedDecisions', 'repositories', 'latestHandoff', 'humanReview', 'blockers', 'explicitNonGoals'],
-  review: ['generatedFrom', 'taskContract', 'operationalGitState', 'taskCheckpoint', 'exactEvidence', 'currentClaims', 'project', 'acceptedDecisions', 'verifiedArtifacts', 'repositories', 'linkedGitHub', 'taskRelations', 'dependencies', 'humanReview', 'blockers', 'explicitNonGoals'],
-  handoff: ['generatedFrom', 'taskContract', 'operationalGitState', 'taskCheckpoint', 'exactEvidence', 'activeRuns', 'coordinationLeases', 'currentClaims', 'project', 'flows', 'acceptedDecisions', 'verifiedArtifacts', 'repositories', 'taskRelations', 'dependencies', 'latestHandoff', 'blockers', 'explicitNonGoals'],
+  review: ['generatedFrom', 'taskContract', 'operationalGitState', 'taskCheckpoint', 'exactEvidence', 'nativeSessions', 'currentClaims', 'project', 'acceptedDecisions', 'verifiedArtifacts', 'repositories', 'linkedGitHub', 'taskRelations', 'dependencies', 'humanReview', 'blockers', 'explicitNonGoals'],
+  handoff: ['generatedFrom', 'taskContract', 'operationalGitState', 'taskCheckpoint', 'exactEvidence', 'activeRuns', 'nativeSessions', 'coordinationLeases', 'currentClaims', 'project', 'flows', 'acceptedDecisions', 'verifiedArtifacts', 'repositories', 'taskRelations', 'dependencies', 'latestHandoff', 'blockers', 'explicitNonGoals'],
 };
 
 function canonical(value: unknown): unknown {
@@ -60,13 +60,13 @@ export function compileContextPack(core: Record<string, unknown>, options: Conte
   const contextCoreHash = hash(canonical(core));
   const contentHash = hash(content);
   const target = { adapter, model: options.model?.trim() || null, projection };
-  const packId = hash({ contextCoreHash, contentHash, target, generatorVersion: 'context-compiler/1' });
+  const packId = hash({ contextCoreHash, contentHash, target, generatorVersion: 'context-compiler/2' });
   return {
     ...content,
     contentHash,
     manifest: {
       packId,
-      generatorVersion: 'context-compiler/1',
+      generatorVersion: 'context-compiler/2',
       contextCoreHash,
       target,
       includedSourceIds,

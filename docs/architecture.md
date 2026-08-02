@@ -126,6 +126,12 @@ The remote MCP endpoint is `/mcp`. It is protected by Anklav’s OAuth authoriza
 
 MCP is an access boundary, not an autonomous-agent runner: Anklav does not execute Codex or Claude Code itself. Connected clients operate only through the explicit tool surface and the workspaces granted during consent. See [MCP access](mcp.md) for setup and the excluded operations.
 
+### Provider-native sessions
+
+A native Claude or Codex session is a durable identity attached to one execution attempt. Provider adapters read their own bundle, rollout, or app-server source without modifying it, then push versioned ingestion batches through HTTP or MCP. Each batch records its parser version, source revision, cursor range, manifest, path mappings, and parse errors; idempotency keys and stable provider sequences prevent a revision from being silently rewritten.
+
+Anklav stores normalized turns and typed items without flattening tool/result, command/output, approval/response, patch/base, subagent/result, or compaction relationships. Searchable item content is explicitly redacted and hash-addressed. The untouched provider archive is stored separately as exact evidence, linked to the session, and read only through the evidence access boundary. Context packs include session provenance and resumability metadata, but never include transcript content implicitly.
+
 ### GitHub
 
 GitHub is disabled by default with `GITHUB_INTEGRATION_ENABLED=false`. When enabled, workspace administrators can create and install a dedicated GitHub App, map repositories to projects, and use the GitHub API and signed webhooks. Integration secrets are encrypted using the configured `INTEGRATION_ENCRYPTION_KEY`.
@@ -157,7 +163,7 @@ Production responsibilities belong to the operator:
 
 The architecture is deliberately small: one database and one API process coordinate the core rather than a microservice fleet. The PostgreSQL image includes pgvector 0.8.1 and migrations enable the `vector` extension so later retrieval work does not require a database-image migration. The current application does not yet implement embeddings, vector-search APIs, RAG, automatic task generation, generic workflow automation, analytics, distributed workers, or a general repository mirror.
 
-The optional MCP and GitHub paths are explicit extensions with their own permission and configuration boundaries. They do not make raw agent output canonical project knowledge, and they do not replace normal task, flow, human-review, or activity-history rules.
+The optional MCP and GitHub paths are explicit extensions with their own permission and configuration boundaries. Native-session ingestion preserves provider history for inspection and continuation; it does not recreate, edit, or live-synchronize provider sessions. Raw agent output never becomes canonical project knowledge automatically, and these integrations do not replace normal task, flow, human-review, or activity-history rules.
 
 ## Related documents
 

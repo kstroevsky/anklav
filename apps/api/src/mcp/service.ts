@@ -9,7 +9,7 @@ import { PortfolioKnowledgeService } from '../portfolio-knowledge.service';
 import { anyOutput, id, page, READ, UNLINK, version, workspaceId, WRITE } from './inputs';
 import { failure, resource, success, variable, warningsMatch } from './helpers';
 import { ExecutionService } from '../execution/service';
-import { appendRunEventInput, checkpointInput, claimLeaseInput, finishRunInput, gitSliceInput, nativeSessionInput, renewLeaseInput, startRunInput } from '../execution/inputs';
+import { appendRunEventInput, checkpointInput, claimLeaseInput, finishRunInput, gitSliceInput, nativeSessionIngestionInput, nativeSessionInput, renewLeaseInput, startRunInput } from '../execution/inputs';
 import { EvidenceService } from '../evidence/service';
 import { evidenceArtifactInput } from '../evidence/inputs';
 import { MemoryService } from '../memory/service';
@@ -157,7 +157,7 @@ export class McpService {
     });
     read(
       'get_task_context_pack',
-      'Compile a deterministic task context pack and reproducibility manifest from structured Anklav state and verified/canonical artifacts. Raw sessions and semantic retrieval are intentionally excluded.',
+      'Compile a deterministic task context pack and reproducibility manifest from structured Anklav state, native-session metadata, and verified/canonical artifacts. Raw transcript content is intentionally excluded.',
       workspaceId.extend({
         taskId: id,
         projection: z.enum(['max', 'standard', 'low', 'review', 'handoff']).optional(),
@@ -193,6 +193,18 @@ export class McpService {
         return this.execution.listRunEvents(input.workspaceId, user, input.runId, input.after);
       },
     );
+    read('get_native_session', 'Get provider-native session identity, ingestion provenance, cursors, parser errors, and exact archive evidence links.', workspaceId.extend({ nativeSessionId: id }), async (input) => {
+      check(input.workspaceId, OAUTH_READ_SCOPE);
+      return this.execution.getNativeSession(input.workspaceId, user, input.nativeSessionId);
+    });
+    read('list_native_session_items', 'Read normalized, redacted native-session items in sequence order. Exact source bytes remain in linked evidence.', workspaceId.extend({ nativeSessionId: id, after: z.number().int().nonnegative().optional() }), async (input) => {
+      check(input.workspaceId, OAUTH_READ_SCOPE);
+      return this.execution.listNativeSessionItems(input.workspaceId, user, input.nativeSessionId, input.after);
+    });
+    read('list_native_session_ingestions', 'List immutable ingestion revisions and parser provenance for a native session.', workspaceId.extend({ nativeSessionId: id }), async (input) => {
+      check(input.workspaceId, OAUTH_READ_SCOPE);
+      return this.execution.listNativeSessionIngestions(input.workspaceId, user, input.nativeSessionId);
+    });
     read('list_task_leases', 'List unexpired task leases and their declared write/path scopes.', workspaceId.extend({ taskId: id }), async (input) => {
       check(input.workspaceId, OAUTH_READ_SCOPE);
       return this.execution.listTaskLeases(input.workspaceId, user, input.taskId);
@@ -326,10 +338,15 @@ export class McpService {
       const { workspaceId: value, runId, ...values } = input;
       return this.execution.captureGitSlice(value, user, runId, values);
     });
-    write('attach_native_session', 'Attach a provider-native resumability reference to a running execution attempt.', workspaceId.extend({ runId: id }).merge(nativeSessionInput), async (input) => {
+    write('attach_native_session', 'Attach a durable provider-native identity and optional exact archive evidence to a running execution attempt.', workspaceId.extend({ runId: id }).merge(nativeSessionInput), async (input) => {
       check(input.workspaceId, OAUTH_WRITE_SCOPE);
       const { workspaceId: value, runId, ...values } = input;
       return this.execution.attachNativeSession(value, user, runId, values);
+    });
+    write('ingest_native_session', 'Push one immutable, versioned batch of normalized provider turns and redacted items. Adapters remain read-only against provider storage.', workspaceId.extend({ nativeSessionId: id }).merge(nativeSessionIngestionInput), async (input) => {
+      check(input.workspaceId, OAUTH_WRITE_SCOPE);
+      const { workspaceId: value, nativeSessionId, ...values } = input;
+      return this.execution.ingestNativeSession(value, user, nativeSessionId, values);
     });
     write('create_run_checkpoint', 'Create an immutable provider-neutral continuation checkpoint for a run.', workspaceId.extend({ runId: id }).merge(checkpointInput), async (input) => {
       check(input.workspaceId, OAUTH_WRITE_SCOPE);

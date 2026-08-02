@@ -2,7 +2,7 @@ import { BadRequestException, Body, Controller, Get, Param, Post, Query, Req, Us
 import type { AuthedRequest } from '../auth';
 import { SessionGuard } from '../auth';
 import { parseBody } from '../common/http';
-import { appendRunEventInput, checkpointInput, claimLeaseInput, finishRunInput, gitSliceInput, nativeSessionInput, renewLeaseInput, startRunInput } from './inputs';
+import { appendRunEventInput, checkpointInput, claimLeaseInput, finishRunInput, gitSliceInput, nativeSessionIngestionInput, nativeSessionInput, renewLeaseInput, startRunInput } from './inputs';
 import { ExecutionService } from './service';
 
 @UseGuards(SessionGuard)
@@ -37,6 +37,22 @@ export class ExecutionController {
 
   @Post('runs/:runId/native-sessions')
   attachNativeSession(@Param('workspaceId') workspaceId: string, @Param('runId') runId: string, @Req() request: AuthedRequest, @Body() body: unknown) { return this.execution.attachNativeSession(workspaceId, request.user, runId, parseBody(nativeSessionInput, body)); }
+
+  @Get('native-sessions/:nativeSessionId')
+  getNativeSession(@Param('workspaceId') workspaceId: string, @Param('nativeSessionId') nativeSessionId: string, @Req() request: AuthedRequest) { return this.execution.getNativeSession(workspaceId, request.user, nativeSessionId); }
+
+  @Get('native-sessions/:nativeSessionId/items')
+  listNativeSessionItems(@Param('workspaceId') workspaceId: string, @Param('nativeSessionId') nativeSessionId: string, @Req() request: AuthedRequest, @Query('after') after?: string) {
+    const cursor = after === undefined ? undefined : Number(after);
+    if (cursor !== undefined && (!Number.isSafeInteger(cursor) || cursor < 0)) throw new BadRequestException('after must be a non-negative native item sequence.');
+    return this.execution.listNativeSessionItems(workspaceId, request.user, nativeSessionId, cursor);
+  }
+
+  @Get('native-sessions/:nativeSessionId/ingestions')
+  listNativeSessionIngestions(@Param('workspaceId') workspaceId: string, @Param('nativeSessionId') nativeSessionId: string, @Req() request: AuthedRequest) { return this.execution.listNativeSessionIngestions(workspaceId, request.user, nativeSessionId); }
+
+  @Post('native-sessions/:nativeSessionId/ingestions')
+  ingestNativeSession(@Param('workspaceId') workspaceId: string, @Param('nativeSessionId') nativeSessionId: string, @Req() request: AuthedRequest, @Body() body: unknown) { return this.execution.ingestNativeSession(workspaceId, request.user, nativeSessionId, parseBody(nativeSessionIngestionInput, body)); }
 
   @Post('runs/:runId/lease')
   claimLease(@Param('workspaceId') workspaceId: string, @Param('runId') runId: string, @Req() request: AuthedRequest, @Body() body: unknown) { return this.execution.claimLease(workspaceId, request.user, runId, parseBody(claimLeaseInput, body)); }

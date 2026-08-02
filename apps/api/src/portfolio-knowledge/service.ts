@@ -4,7 +4,7 @@ import { and, asc, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { AuthUser } from '../auth';
 import { ActivityService } from '../activity.service';
 import { DatabaseService } from '../db/database.service';
-import { agentRuns, evidenceArtifacts, evidenceBlobs, externalObjectMappings, gitSlices, knowledgeArtifacts, memoryClaims, milestoneTasks, milestones, projectDecisions, projectRepositories, repositories, repositoryArtifactReferences, repositoryLocalAliases, runCheckpoints, taskLeases } from '../db/schema';
+import { agentRuns, evidenceArtifacts, evidenceBlobs, externalObjectMappings, gitSlices, knowledgeArtifacts, memoryClaims, milestoneTasks, milestones, nativeSessions, projectDecisions, projectRepositories, repositories, repositoryArtifactReferences, repositoryLocalAliases, runCheckpoints, taskLeases } from '../db/schema';
 import { GitHubService } from '../github';
 import { ResourceService } from '../resource.service';
 import { WorkspaceService } from '../workspace.service';
@@ -113,6 +113,31 @@ export class PortfolioKnowledgeService extends PortfolioArtifactService {
       .from(agentRuns)
       .where(and(eq(agentRuns.workspaceId, workspaceId), eq(agentRuns.taskId, task.id), eq(agentRuns.status, 'running')))
       .orderBy(asc(agentRuns.startedAt), asc(agentRuns.id));
+    const nativeSessionRows = await this.database.db
+      .select({
+        id: nativeSessions.id,
+        runId: nativeSessions.runId,
+        provider: nativeSessions.provider,
+        nativeSessionId: nativeSessions.nativeSessionId,
+        parentNativeSessionId: nativeSessions.parentNativeSessionId,
+        clientVersion: nativeSessions.clientVersion,
+        protocolVersion: nativeSessions.protocolVersion,
+        resumability: nativeSessions.resumability,
+        sourceKind: nativeSessions.sourceKind,
+        parserVersion: nativeSessions.parserVersion,
+        sourceRevision: nativeSessions.sourceRevision,
+        ingestionStatus: nativeSessions.ingestionStatus,
+        lastNativeCursor: nativeSessions.lastNativeCursor,
+        lastIngestedAt: nativeSessions.lastIngestedAt,
+        recordCount: nativeSessions.recordCount,
+        parseErrors: nativeSessions.parseErrors,
+        createdAt: nativeSessions.createdAt,
+      })
+      .from(nativeSessions)
+      .innerJoin(agentRuns, eq(nativeSessions.runId, agentRuns.id))
+      .where(and(eq(nativeSessions.workspaceId, workspaceId), eq(agentRuns.taskId, task.id)))
+      .orderBy(desc(nativeSessions.createdAt), desc(nativeSessions.id))
+      .limit(20);
     const checkpointEvidenceIds = latestCheckpoint?.evidenceArtifactIds ?? [];
     const exactEvidence = checkpointEvidenceIds.length
       ? await this.database.db
@@ -166,7 +191,7 @@ export class PortfolioKnowledgeService extends PortfolioArtifactService {
         })),
     ];
     const deterministic = {
-      version: '3',
+      version: '4',
       generatedFrom: {
         taskId: task.id,
         taskVersion: task.version,
@@ -263,6 +288,11 @@ export class PortfolioKnowledgeService extends PortfolioArtifactService {
         runId: artifact.runId,
       })),
       activeRuns,
+      nativeSessions: {
+        sessions: nativeSessionRows,
+        transcriptContentIncluded: false,
+        reason: 'Context packs expose ingestion and resumability metadata only. Select normalized redacted items or exact archive evidence explicitly when needed.',
+      },
       coordinationLeases,
       currentClaims: currentClaims.map((claim) => ({
         id: claim.id,
@@ -398,7 +428,7 @@ export class PortfolioKnowledgeService extends PortfolioArtifactService {
         : nonGoals(task.description),
       semanticRetrieval: {
         included: false,
-        reason: 'Phase 1 context packs intentionally use deterministic structured and verified Git-backed context only.',
+        reason: 'Context packs intentionally use deterministic structured and verified Git-backed context only.',
       },
     };
     return compileContextPack(deterministic, options);

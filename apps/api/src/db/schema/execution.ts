@@ -1,5 +1,5 @@
-import { bigint, boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
-import { createdAt, id } from './common';
+import { bigint, boolean, foreignKey, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { createdAt, id, updatedAt } from './common';
 import { gitSliceDirtyState, nativeSessionResumability, runProvider, runStatus } from './enums';
 import { users, workspaces } from './identity';
 import { githubRepositories } from './integrations';
@@ -65,9 +65,76 @@ export const nativeSessions = pgTable('native_sessions', {
   protocolVersion: text('protocol_version'),
   archiveArtifactId: uuid('archive_artifact_id').references(() => knowledgeArtifacts.id),
   resumability: nativeSessionResumability('resumability').notNull().default('unknown'),
+  sourceKind: text('source_kind').notNull().default('manual'),
+  parserVersion: text('parser_version'),
+  sourceRevision: text('source_revision'),
+  ingestionStatus: text('ingestion_status').notNull().default('pending'),
+  lastNativeCursor: text('last_native_cursor'),
+  lastIngestedAt: timestamp('last_ingested_at', { withTimezone: true }),
+  recordCount: integer('record_count').notNull().default(0),
+  manifest: jsonb('manifest').$type<Record<string, unknown>>().notNull().default({}),
+  pathMappings: jsonb('path_mappings').$type<Record<string, string>>().notNull().default({}),
+  parseErrors: jsonb('parse_errors').$type<Record<string, unknown>[]>().notNull().default([]),
   metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
   createdAt: createdAt(),
-}, (table) => [index('native_sessions_run_index').on(table.runId), index('native_sessions_lookup_index').on(table.provider, table.nativeSessionId), uniqueIndex('native_sessions_run_native_unique').on(table.runId, table.provider, table.nativeSessionId)]);
+  updatedAt: updatedAt(),
+}, (table) => [index('native_sessions_run_index').on(table.runId), index('native_sessions_lookup_index').on(table.provider, table.nativeSessionId), uniqueIndex('native_sessions_run_native_unique').on(table.runId, table.provider, table.nativeSessionId), uniqueIndex('native_sessions_workspace_native_unique').on(table.workspaceId, table.provider, table.nativeSessionId)]);
+
+export const nativeSessionIngestions = pgTable('native_session_ingestions', {
+  id: id(),
+  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+  nativeSessionId: uuid('native_session_id').notNull().references(() => nativeSessions.id),
+  idempotencyKey: text('idempotency_key').notNull(),
+  payloadHash: text('payload_hash').notNull(),
+  sourceRevision: text('source_revision').notNull(),
+  parserVersion: text('parser_version').notNull(),
+  fromCursor: text('from_cursor'),
+  toCursor: text('to_cursor'),
+  status: text('status').notNull(),
+  turnCount: integer('turn_count').notNull().default(0),
+  itemCount: integer('item_count').notNull().default(0),
+  errors: jsonb('errors').$type<Record<string, unknown>[]>().notNull().default([]),
+  manifest: jsonb('manifest').$type<Record<string, unknown>>().notNull().default({}),
+  ingestedAt: createdAt(),
+}, (table) => [uniqueIndex('native_session_ingestions_workspace_idempotency_unique').on(table.workspaceId, table.idempotencyKey), uniqueIndex('native_session_ingestions_revision_unique').on(table.nativeSessionId, table.sourceRevision), index('native_session_ingestions_session_index').on(table.nativeSessionId, table.ingestedAt)]);
+
+export const nativeSessionTurns = pgTable('native_session_turns', {
+  id: id(),
+  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+  nativeSessionId: uuid('native_session_id').notNull().references(() => nativeSessions.id),
+  nativeTurnId: text('native_turn_id').notNull(),
+  parentNativeTurnId: text('parent_native_turn_id'),
+  sequence: integer('sequence').notNull(),
+  status: text('status').notNull().default('unknown'),
+  startedAt: timestamp('started_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (table) => [uniqueIndex('native_session_turns_native_unique').on(table.nativeSessionId, table.nativeTurnId), uniqueIndex('native_session_turns_sequence_unique').on(table.nativeSessionId, table.sequence), index('native_session_turns_session_index').on(table.nativeSessionId, table.sequence)]);
+
+export const nativeSessionItems = pgTable('native_session_items', {
+  id: id(),
+  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+  nativeSessionId: uuid('native_session_id').notNull().references(() => nativeSessions.id),
+  turnId: uuid('turn_id').references(() => nativeSessionTurns.id),
+  nativeItemId: text('native_item_id').notNull(),
+  parentNativeItemId: text('parent_native_item_id'),
+  relatedItemId: uuid('related_item_id'),
+  relationshipType: text('relationship_type'),
+  sequence: integer('sequence').notNull(),
+  type: text('type').notNull(),
+  role: text('role'),
+  status: text('status').notNull().default('complete'),
+  summary: text('summary').notNull().default(''),
+  redactedContent: jsonb('redacted_content').$type<Record<string, unknown>>().notNull().default({}),
+  contentHash: text('content_hash').notNull(),
+  redactionStatus: text('redaction_status').notNull().default('unreviewed'),
+  correlationId: text('correlation_id'),
+  occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull(),
+  metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
+  createdAt: createdAt(),
+}, (table) => [uniqueIndex('native_session_items_native_unique').on(table.nativeSessionId, table.nativeItemId), uniqueIndex('native_session_items_sequence_unique').on(table.nativeSessionId, table.sequence), index('native_session_items_session_index').on(table.nativeSessionId, table.sequence), index('native_session_items_turn_index').on(table.turnId, table.sequence), index('native_session_items_correlation_index').on(table.nativeSessionId, table.correlationId), foreignKey({ columns: [table.relatedItemId], foreignColumns: [table.id], name: 'native_session_items_related_item_fk' })]);
 
 export const runEvents = pgTable('run_events', {
   id: id(),

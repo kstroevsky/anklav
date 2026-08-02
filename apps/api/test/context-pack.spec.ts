@@ -42,12 +42,13 @@ describe('deterministic context packs', () => {
       operationalGitState: { headCommitSha: 'abcdef2', dirtyState: 'clean' },
       taskCheckpoint: { nextAction: 'Run tests' },
       exactEvidence: [{ id: 'ART-1', contentHash: 'a'.repeat(64) }],
+      nativeSessions: { sessions: [{ id: 'session-1', ingestionStatus: 'complete' }], transcriptContentIncluded: false },
       flows: [{ name: 'Control plane' }],
       acceptedDecisions: [{ id: 'DEC-1', summary: 'Tasks are canonical.' }],
       verifiedArtifacts: [{ id: 'ART-1' }],
       sourceProvenance: [{ sourceSystem: 'linear' }],
       blockers: [],
-      explicitNonGoals: ['Do not ingest raw sessions'],
+      explicitNonGoals: ['Do not include raw transcript content implicitly'],
     };
     const first = compileContextPack(core, { projection: 'low', adapter: 'codex', model: 'gpt-5' });
     const second = compileContextPack(core, { projection: 'low', adapter: 'codex', model: 'gpt-5' });
@@ -59,7 +60,10 @@ describe('deterministic context packs', () => {
     expect(first).toHaveProperty('taskCheckpoint.nextAction', 'Run tests');
     expect(first).toHaveProperty('exactEvidence.0.id', 'ART-1');
     expect(first.manifest.omittedSources).toContainEqual({ sourceId: 'sourceProvenance', reason: 'Excluded by the low projection policy.' });
+    expect(first.manifest.omittedSources).toContainEqual({ sourceId: 'nativeSessions', reason: 'Excluded by the low projection policy.' });
     expect(first).not.toHaveProperty('verifiedArtifacts');
+    const standard = compileContextPack(core, { projection: 'standard' });
+    expect(standard).toHaveProperty('nativeSessions.transcriptContentIncluded', false);
     expect(first.contentHash).toMatch(/^[a-f0-9]{64}$/);
     expect(first.manifest.packId).toMatch(/^[a-f0-9]{64}$/);
   });
