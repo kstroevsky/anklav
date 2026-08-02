@@ -2136,6 +2136,76 @@
           "OAuthSettings"
         ]
       }
+    },
+    "/api/v1/workspaces/{workspaceId}/retrieval/search": {
+      "post": {
+        "operationId": "RetrievalController_search",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Retrieval"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/retrieval/refresh": {
+      "post": {
+        "operationId": "RetrievalController_refresh",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Retrieval"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/retrieval/documents": {
+      "get": {
+        "operationId": "RetrievalController_listDocuments",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Retrieval"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/retrieval/documents/{documentId}/embedding": {
+      "put": {
+        "operationId": "RetrievalController_putEmbedding",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Retrieval"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/retrieval/traces/{traceId}": {
+      "get": {
+        "operationId": "RetrievalController_getTrace",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Retrieval"
+        ]
+      }
     }
   },
   "info": {

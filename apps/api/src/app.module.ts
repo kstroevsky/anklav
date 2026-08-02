@@ -12,8 +12,9 @@ import { WorkspaceModule } from './workspace/workspace.module';
 import { ExecutionModule } from './execution/execution.module';
 import { EvidenceModule } from './evidence/evidence.module';
 import { MemoryModule } from './memory/memory.module';
+import { RetrievalModule } from './retrieval/retrieval.module';
 
 @Module({
-  imports: [AccountModule, AuthModule, DomainModule, GitHubModule, ImportModule, KnowledgeModule, McpModule, OAuthModule, ResourceModule, WorkspaceModule, ExecutionModule, EvidenceModule, MemoryModule],
+  imports: [AccountModule, AuthModule, DomainModule, GitHubModule, ImportModule, KnowledgeModule, McpModule, OAuthModule, ResourceModule, WorkspaceModule, ExecutionModule, EvidenceModule, MemoryModule, RetrievalModule],
 })
 export class AppModule {}

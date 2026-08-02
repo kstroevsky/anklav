@@ -11,3 +11,4 @@ export * from './schema/execution';
 export * from './schema/evidence';
 export * from './schema/memory';
 export * from './schema/events';
+export * from './schema/retrieval';

@@ -132,6 +132,14 @@ A native Claude or Codex session is a durable identity attached to one execution
 
 Anklav stores normalized turns and typed items without flattening tool/result, command/output, approval/response, patch/base, subagent/result, or compaction relationships. Searchable item content is explicitly redacted and hash-addressed. The untouched provider archive is stored separately as exact evidence, linked to the session, and read only through the evidence access boundary. Context packs include session provenance and resumability metadata, but never include transcript content implicitly.
 
+### Derived hybrid retrieval
+
+Retrieval documents are a rebuildable projection, never canonical memory. A project refresh derives semantic units from current tasks, verified and superseded claims, accepted and superseded decisions, checkpoints, terminal run summaries, verified canonical knowledge, explicitly redacted evidence previews, and safe or redacted native-session episodes. Unreviewed evidence and session content never enter the index.
+
+Every search requires an explicit project boundary after workspace membership is checked. Optional task scope is validated inside that project and may expand one hop through explicit task relationships. Current-state searches suppress superseded material; historical intent or an explicit historical flag can include it. Results are reranked from lexical relevance, vector similarity, source authority, task affinity, and recency, with the chosen weights and result references persisted in a retrieval trace. The original query is represented only by its SHA-256 hash in that trace.
+
+PostgreSQL full-text search uses the `simple` dictionary to preserve identifiers, paths, hashes, and error tokens. pgvector stores 768-dimensional embeddings behind a model name and the exact retrieval-document content hash. An external embedding worker may list missing documents and attach embeddings; stale embeddings are excluded automatically when document content changes. Anklav does not call a hosted embedding model or make a particular model provider canonical.
+
 ### GitHub
 
 GitHub is disabled by default with `GITHUB_INTEGRATION_ENABLED=false`. When enabled, workspace administrators can create and install a dedicated GitHub App, map repositories to projects, and use the GitHub API and signed webhooks. Integration secrets are encrypted using the configured `INTEGRATION_ENCRYPTION_KEY`.
@@ -161,7 +169,7 @@ Production responsibilities belong to the operator:
 
 ## Scope and Boundaries
 
-The architecture is deliberately small: one database and one API process coordinate the core rather than a microservice fleet. The PostgreSQL image includes pgvector 0.8.1 and migrations enable the `vector` extension so later retrieval work does not require a database-image migration. The current application does not yet implement embeddings, vector-search APIs, RAG, automatic task generation, generic workflow automation, analytics, distributed workers, or a general repository mirror.
+The architecture is deliberately small: one database and one API process coordinate the core rather than a microservice fleet. The PostgreSQL image includes pgvector 0.8.1; derived full-text/vector retrieval runs in PostgreSQL and accepts content-hash-guarded embeddings from an external worker. The current application does not yet generate embeddings itself, provide a commit-aware code-symbol index, perform broad GraphRAG-style synthesis, automatically generate tasks, run generic workflow automation, provide analytics, operate distributed workers, or mirror repositories generally.
 
 The optional MCP and GitHub paths are explicit extensions with their own permission and configuration boundaries. Native-session ingestion preserves provider history for inspection and continuation; it does not recreate, edit, or live-synchronize provider sessions. Raw agent output never becomes canonical project knowledge automatically, and these integrations do not replace normal task, flow, human-review, or activity-history rules.
 

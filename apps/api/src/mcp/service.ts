@@ -14,6 +14,8 @@ import { EvidenceService } from '../evidence/service';
 import { evidenceArtifactInput } from '../evidence/inputs';
 import { MemoryService } from '../memory/service';
 import { proposeClaimInput, proposeDecisionInput } from '../memory/inputs';
+import { embeddingInput, listRetrievalDocumentsInput, refreshRetrievalInput, retrievalSearchInput } from '../retrieval/inputs';
+import { RetrievalService } from '../retrieval/service';
 
 export class McpService {
   constructor(
@@ -24,6 +26,7 @@ export class McpService {
     private readonly execution: ExecutionService,
     private readonly evidence: EvidenceService,
     private readonly memory: MemoryService,
+    private readonly retrieval: RetrievalService,
   ) {}
 
   createServer(principal: McpPrincipal): McpServer {
@@ -254,6 +257,20 @@ export class McpService {
       check(input.workspaceId, OAUTH_READ_SCOPE);
       return this.memory.listDecisions(input.workspaceId, user, input.projectId, input.current);
     });
+    read('search_retrieval', 'Run ACL-scoped hybrid lexical/vector retrieval over the rebuildable derived index and return an auditable scoring trace.', workspaceId.merge(retrievalSearchInput), async (input) => {
+      check(input.workspaceId, OAUTH_READ_SCOPE);
+      const { workspaceId: value, ...values } = input;
+      return this.retrieval.search(value, user, values);
+    });
+    read('list_retrieval_documents', 'List derived retrieval documents or documents missing an embedding for a selected model.', workspaceId.merge(listRetrievalDocumentsInput), async (input) => {
+      check(input.workspaceId, OAUTH_READ_SCOPE);
+      const { workspaceId: value, ...values } = input;
+      return this.retrieval.listDocuments(value, user, values);
+    });
+    read('get_retrieval_trace', 'Read a persisted retrieval trace by ID without storing or exposing the original query text.', workspaceId.extend({ traceId: id }), async (input) => {
+      check(input.workspaceId, OAUTH_READ_SCOPE);
+      return this.retrieval.getTrace(input.workspaceId, user, input.traceId);
+    });
 
     write('create_project', 'Create a project.', workspaceId.merge(projectInput), async (input) => {
       check(input.workspaceId, OAUTH_WRITE_SCOPE);
@@ -385,6 +402,16 @@ export class McpService {
       check(input.workspaceId, OAUTH_WRITE_SCOPE);
       const { workspaceId: value, ...values } = input;
       return this.memory.proposeDecision(value, user, values);
+    });
+    write('refresh_retrieval_index', 'Rebuild one project derived retrieval projection from canonical structured records and redacted evidence.', workspaceId.merge(refreshRetrievalInput), async (input) => {
+      check(input.workspaceId, OAUTH_WRITE_SCOPE);
+      const { workspaceId: value, ...values } = input;
+      return this.retrieval.refresh(value, user, values);
+    });
+    write('put_retrieval_embedding', 'Attach a 768-dimensional external embedding only when its content hash matches the current derived document.', workspaceId.extend({ documentId: id }).merge(embeddingInput), async (input) => {
+      check(input.workspaceId, OAUTH_WRITE_SCOPE);
+      const { workspaceId: value, documentId, ...values } = input;
+      return this.retrieval.putEmbedding(value, user, documentId, values);
     });
     write(
       'update_task',

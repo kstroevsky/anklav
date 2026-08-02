@@ -428,7 +428,7 @@ export class PortfolioKnowledgeService extends PortfolioArtifactService {
         : nonGoals(task.description),
       semanticRetrieval: {
         included: false,
-        reason: 'Context packs intentionally use deterministic structured and verified Git-backed context only.',
+        reason: 'Context packs remain deterministic by default. Use project-scoped hybrid retrieval explicitly, then retain its trace ID alongside the selected evidence.',
       },
     };
     return compileContextPack(deterministic, options);
