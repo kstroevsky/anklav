@@ -1,5 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { and, count, eq, gt } from 'drizzle-orm';
 import * as argon2 from 'argon2';
 import type { FastifyReply } from 'fastify';
@@ -12,8 +12,9 @@ import type { AuthUser, AuthedRequest } from './types';
 import { credentialsSchema, setupSchema } from './inputs';
 import { publicUser } from './helpers';
 
+@Injectable()
 export class AuthService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(@Inject(DatabaseService) private readonly database: DatabaseService) {}
 
   private hashToken(value: string): string {
     return createHash('sha256').update(value).digest('hex');
@@ -125,4 +126,3 @@ export class AuthService {
     return { ...publicUser(row.user), sessionId: row.session.id, csrfToken: row.session.csrfToken };
   }
 }
-
