@@ -9,6 +9,8 @@ describe('MCP public contract', () => {
     expect(MCP_TOOL_NAMES).not.toContain('update_review');
     expect(MCP_TOOL_NAMES).toContain('get_task_context_pack');
     expect(MCP_TOOL_NAMES).toContain('list_milestones');
+    expect(MCP_TOOL_NAMES).toContain('start_run');
+    expect(MCP_TOOL_NAMES).toContain('create_run_checkpoint');
     expect(MCP_TOOL_NAMES.every((name) => !/(delete_|restore|workspace|member|workflow|account)/.test(name) || ['list_workspaces', 'get_workspace_context'].includes(name))).toBe(true);
   });
 

@@ -1,6 +1,46 @@
 {
   "openapi": "3.0.0",
   "paths": {
+    "/api/v1/accounts": {
+      "get": {
+        "operationId": "AccountController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Account"
+        ]
+      },
+      "post": {
+        "operationId": "AccountController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/v1/accounts/{userId}/password": {
+      "patch": {
+        "operationId": "AccountController_resetPassword",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Account"
+        ]
+      }
+    },
     "/api/v1/auth/setup-status": {
       "get": {
         "operationId": "AuthController_setupStatus",
@@ -96,46 +136,6 @@
         },
         "tags": [
           "Auth"
-        ]
-      }
-    },
-    "/api/v1/accounts": {
-      "get": {
-        "operationId": "AccountController_list",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Account"
-        ]
-      },
-      "post": {
-        "operationId": "AccountController_create",
-        "parameters": [],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Account"
-        ]
-      }
-    },
-    "/api/v1/accounts/{userId}/password": {
-      "patch": {
-        "operationId": "AccountController_resetPassword",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Account"
         ]
       }
     },
@@ -775,258 +775,6 @@
         ]
       }
     },
-    "/.well-known/oauth-protected-resource": {
-      "get": {
-        "operationId": "OAuthMetadataController_protectedResource",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "OAuthMetadata"
-        ]
-      }
-    },
-    "/.well-known/oauth-protected-resource/mcp": {
-      "get": {
-        "operationId": "OAuthMetadataController_protectedResourceAtMcp",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "OAuthMetadata"
-        ]
-      }
-    },
-    "/.well-known/oauth-authorization-server": {
-      "get": {
-        "operationId": "OAuthMetadataController_authorizationServer",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "OAuthMetadata"
-        ]
-      }
-    },
-    "/oauth/register": {
-      "post": {
-        "operationId": "OAuthController_register",
-        "parameters": [],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "OAuth"
-        ]
-      }
-    },
-    "/oauth/authorize": {
-      "get": {
-        "operationId": "OAuthController_authorize",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "OAuth"
-        ]
-      }
-    },
-    "/oauth/token": {
-      "post": {
-        "operationId": "OAuthController_token",
-        "parameters": [],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "OAuth"
-        ]
-      }
-    },
-    "/oauth/revoke": {
-      "post": {
-        "operationId": "OAuthController_revoke",
-        "parameters": [],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "OAuth"
-        ]
-      }
-    },
-    "/api/v1/oauth/requests/{requestId}": {
-      "get": {
-        "operationId": "OAuthSettingsController_request",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "OAuthSettings"
-        ]
-      }
-    },
-    "/api/v1/oauth/requests/{requestId}/decision": {
-      "post": {
-        "operationId": "OAuthSettingsController_decide",
-        "parameters": [],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "OAuthSettings"
-        ]
-      }
-    },
-    "/api/v1/oauth/grants": {
-      "get": {
-        "operationId": "OAuthSettingsController_grants",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "OAuthSettings"
-        ]
-      }
-    },
-    "/api/v1/oauth/grants/{grantId}": {
-      "delete": {
-        "operationId": "OAuthSettingsController_revokeGrant",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "OAuthSettings"
-        ]
-      }
-    },
-    "/mcp": {
-      "get": {
-        "operationId": "McpController_handle_get",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Mcp"
-        ]
-      },
-      "post": {
-        "operationId": "McpController_handle_post",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Mcp"
-        ]
-      },
-      "put": {
-        "operationId": "McpController_handle_put",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Mcp"
-        ]
-      },
-      "delete": {
-        "operationId": "McpController_handle_delete",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Mcp"
-        ]
-      },
-      "patch": {
-        "operationId": "McpController_handle_patch",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Mcp"
-        ]
-      },
-      "options": {
-        "operationId": "McpController_handle_options",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Mcp"
-        ]
-      },
-      "head": {
-        "operationId": "McpController_handle_head",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Mcp"
-        ]
-      },
-      "search": {
-        "operationId": "McpController_handle_search",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Mcp"
-        ]
-      }
-    },
     "/api/v1/github/manifest/redirect": {
       "get": {
         "operationId": "GitHubPublicController_redirect",
@@ -1377,6 +1125,76 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceId}/imports/anklav/plan": {
+      "get": {
+        "operationId": "PortfolioImportController_plan",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PortfolioImport"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/imports/anklav/apply": {
+      "post": {
+        "operationId": "PortfolioImportController_apply",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PortfolioImport"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/imports/anklav/resume": {
+      "post": {
+        "operationId": "PortfolioImportController_resume",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PortfolioImport"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/imports/anklav/verify": {
+      "post": {
+        "operationId": "PortfolioImportController_verify",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PortfolioImport"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/imports/anklav/rollback": {
+      "post": {
+        "operationId": "PortfolioImportController_rollback",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PortfolioImport"
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceId}/milestones": {
       "get": {
         "operationId": "PortfolioKnowledgeController_listMilestones",
@@ -1565,9 +1383,9 @@
         ]
       }
     },
-    "/api/v1/workspaces/{workspaceId}/imports/anklav/plan": {
+    "/mcp": {
       "get": {
-        "operationId": "PortfolioImportController_plan",
+        "operationId": "McpController_handle_get",
         "parameters": [],
         "responses": {
           "200": {
@@ -1575,13 +1393,109 @@
           }
         },
         "tags": [
-          "PortfolioImport"
+          "Mcp"
+        ]
+      },
+      "post": {
+        "operationId": "McpController_handle_post",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Mcp"
+        ]
+      },
+      "put": {
+        "operationId": "McpController_handle_put",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Mcp"
+        ]
+      },
+      "delete": {
+        "operationId": "McpController_handle_delete",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Mcp"
+        ]
+      },
+      "patch": {
+        "operationId": "McpController_handle_patch",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Mcp"
+        ]
+      },
+      "options": {
+        "operationId": "McpController_handle_options",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Mcp"
+        ]
+      },
+      "head": {
+        "operationId": "McpController_handle_head",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Mcp"
+        ]
+      },
+      "search": {
+        "operationId": "McpController_handle_search",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Mcp"
         ]
       }
     },
-    "/api/v1/workspaces/{workspaceId}/imports/anklav/apply": {
+    "/api/v1/workspaces/{workspaceId}/tasks/{taskId}/runs": {
+      "get": {
+        "operationId": "ExecutionController_listTaskRuns",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Execution"
+        ]
+      },
       "post": {
-        "operationId": "PortfolioImportController_apply",
+        "operationId": "ExecutionController_startRun",
         "parameters": [],
         "responses": {
           "201": {
@@ -1589,13 +1503,39 @@
           }
         },
         "tags": [
-          "PortfolioImport"
+          "Execution"
         ]
       }
     },
-    "/api/v1/workspaces/{workspaceId}/imports/anklav/resume": {
+    "/api/v1/workspaces/{workspaceId}/runs/{runId}": {
+      "get": {
+        "operationId": "ExecutionController_getRun",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Execution"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/runs/{runId}/events": {
+      "get": {
+        "operationId": "ExecutionController_listRunEvents",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Execution"
+        ]
+      },
       "post": {
-        "operationId": "PortfolioImportController_resume",
+        "operationId": "ExecutionController_appendEvent",
         "parameters": [],
         "responses": {
           "201": {
@@ -1603,13 +1543,13 @@
           }
         },
         "tags": [
-          "PortfolioImport"
+          "Execution"
         ]
       }
     },
-    "/api/v1/workspaces/{workspaceId}/imports/anklav/verify": {
+    "/api/v1/workspaces/{workspaceId}/runs/{runId}/git-slices": {
       "post": {
-        "operationId": "PortfolioImportController_verify",
+        "operationId": "ExecutionController_captureGitSlice",
         "parameters": [],
         "responses": {
           "201": {
@@ -1617,13 +1557,13 @@
           }
         },
         "tags": [
-          "PortfolioImport"
+          "Execution"
         ]
       }
     },
-    "/api/v1/workspaces/{workspaceId}/imports/anklav/rollback": {
+    "/api/v1/workspaces/{workspaceId}/runs/{runId}/native-sessions": {
       "post": {
-        "operationId": "PortfolioImportController_rollback",
+        "operationId": "ExecutionController_attachNativeSession",
         "parameters": [],
         "responses": {
           "201": {
@@ -1631,7 +1571,189 @@
           }
         },
         "tags": [
-          "PortfolioImport"
+          "Execution"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/runs/{runId}/checkpoints": {
+      "post": {
+        "operationId": "ExecutionController_createCheckpoint",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Execution"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/runs/{runId}/finish": {
+      "post": {
+        "operationId": "ExecutionController_finishRun",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Execution"
+        ]
+      }
+    },
+    "/.well-known/oauth-protected-resource": {
+      "get": {
+        "operationId": "OAuthMetadataController_protectedResource",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OAuthMetadata"
+        ]
+      }
+    },
+    "/.well-known/oauth-protected-resource/mcp": {
+      "get": {
+        "operationId": "OAuthMetadataController_protectedResourceAtMcp",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OAuthMetadata"
+        ]
+      }
+    },
+    "/.well-known/oauth-authorization-server": {
+      "get": {
+        "operationId": "OAuthMetadataController_authorizationServer",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OAuthMetadata"
+        ]
+      }
+    },
+    "/oauth/register": {
+      "post": {
+        "operationId": "OAuthController_register",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OAuth"
+        ]
+      }
+    },
+    "/oauth/authorize": {
+      "get": {
+        "operationId": "OAuthController_authorize",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OAuth"
+        ]
+      }
+    },
+    "/oauth/token": {
+      "post": {
+        "operationId": "OAuthController_token",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OAuth"
+        ]
+      }
+    },
+    "/oauth/revoke": {
+      "post": {
+        "operationId": "OAuthController_revoke",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OAuth"
+        ]
+      }
+    },
+    "/api/v1/oauth/requests/{requestId}": {
+      "get": {
+        "operationId": "OAuthSettingsController_request",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OAuthSettings"
+        ]
+      }
+    },
+    "/api/v1/oauth/requests/{requestId}/decision": {
+      "post": {
+        "operationId": "OAuthSettingsController_decide",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OAuthSettings"
+        ]
+      }
+    },
+    "/api/v1/oauth/grants": {
+      "get": {
+        "operationId": "OAuthSettingsController_grants",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OAuthSettings"
+        ]
+      }
+    },
+    "/api/v1/oauth/grants/{grantId}": {
+      "delete": {
+        "operationId": "OAuthSettingsController_revokeGrant",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OAuthSettings"
         ]
       }
     }

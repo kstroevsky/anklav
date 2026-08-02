@@ -39,6 +39,8 @@ describe('deterministic context packs', () => {
       generatedFrom: { taskId: 'task-7', taskVersion: 3 },
       taskContract: { identifier: 'ANKLAV-7', acceptanceCriteria: [{ text: 'passes', completed: false }] },
       project: { name: 'Anklav' },
+      operationalGitState: { headCommitSha: 'abcdef2', dirtyState: 'clean' },
+      taskCheckpoint: { nextAction: 'Run tests' },
       flows: [{ name: 'Control plane' }],
       acceptedDecisions: [{ id: 'DEC-1', summary: 'Tasks are canonical.' }],
       verifiedArtifacts: [{ id: 'ART-1' }],
@@ -52,6 +54,8 @@ describe('deterministic context packs', () => {
     expect(second).toEqual(first);
     expect(first.manifest.target).toEqual({ projection: 'low', adapter: 'codex', model: 'gpt-5' });
     expect(first.manifest.includedSourceIds).toContain('taskContract');
+    expect(first.manifest.includedSourceIds).toContain('operationalGitState');
+    expect(first).toHaveProperty('taskCheckpoint.nextAction', 'Run tests');
     expect(first.manifest.omittedSources).toContainEqual({ sourceId: 'sourceProvenance', reason: 'Excluded by the low projection policy.' });
     expect(first).not.toHaveProperty('verifiedArtifacts');
     expect(first.contentHash).toMatch(/^[a-f0-9]{64}$/);

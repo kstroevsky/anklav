@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "native_sessions_run_native_unique" ON "native_sessions" USING btree ("run_id","provider","native_session_id");

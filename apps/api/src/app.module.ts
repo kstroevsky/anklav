@@ -9,8 +9,9 @@ import { McpModule } from './mcp/mcp.module';
 import { OAuthModule } from './oauth/oauth.module';
 import { ResourceModule } from './resource/resource.module';
 import { WorkspaceModule } from './workspace/workspace.module';
+import { ExecutionModule } from './execution/execution.module';
 
 @Module({
-  imports: [AccountModule, AuthModule, DomainModule, GitHubModule, ImportModule, KnowledgeModule, McpModule, OAuthModule, ResourceModule, WorkspaceModule],
+  imports: [AccountModule, AuthModule, DomainModule, GitHubModule, ImportModule, KnowledgeModule, McpModule, OAuthModule, ResourceModule, WorkspaceModule, ExecutionModule],
 })
 export class AppModule {}

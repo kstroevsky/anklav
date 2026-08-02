@@ -51,3 +51,11 @@ export const importMappingStatus = pgEnum('import_mapping_status', ['created', '
 export const importConflictStatus = pgEnum('import_conflict_status', ['open', 'resolved', 'deferred']);
 
 export const importConflictSeverity = pgEnum('import_conflict_severity', ['blocking', 'prerequisite', 'review', 'warning']);
+
+export const runProvider = pgEnum('run_provider', ['claude', 'codex', 'human', 'other']);
+
+export const runStatus = pgEnum('run_status', ['running', 'completed', 'failed', 'blocked', 'cancelled']);
+
+export const nativeSessionResumability = pgEnum('native_session_resumability', ['unknown', 'resumable', 'requires_reconciliation', 'not_resumable']);
+
+export const gitSliceDirtyState = pgEnum('git_slice_dirty_state', ['clean', 'dirty_captured', 'dirty_missing', 'unknown']);

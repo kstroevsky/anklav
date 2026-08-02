@@ -8,9 +8,11 @@ import { McpPrincipal, OAUTH_READ_SCOPE, OAUTH_WRITE_SCOPE, OAuthService } from 
 import { PortfolioKnowledgeService } from '../portfolio-knowledge.service';
 import { anyOutput, id, page, READ, UNLINK, version, workspaceId, WRITE } from './inputs';
 import { failure, resource, success, variable, warningsMatch } from './helpers';
+import { ExecutionService } from '../execution/service';
+import { appendRunEventInput, checkpointInput, finishRunInput, gitSliceInput, nativeSessionInput, startRunInput } from '../execution/inputs';
 
 export class McpService {
-  constructor(private readonly oauth: OAuthService, private readonly workspaces: WorkspaceService, private readonly resources: ResourceService, private readonly knowledge: PortfolioKnowledgeService) {}
+  constructor(private readonly oauth: OAuthService, private readonly workspaces: WorkspaceService, private readonly resources: ResourceService, private readonly knowledge: PortfolioKnowledgeService, private readonly execution: ExecutionService) {}
 
   createServer(principal: McpPrincipal): McpServer {
     const server = new McpServer(
@@ -56,6 +58,15 @@ export class McpService {
     read('get_task_context_pack', 'Compile a deterministic task context pack and reproducibility manifest from structured Anklav state and verified/canonical artifacts. Raw sessions and semantic retrieval are intentionally excluded.', workspaceId.extend({ taskId: id, projection: z.enum(['max', 'standard', 'low', 'review', 'handoff']).optional(), adapter: z.enum(['provider_neutral', 'claude', 'codex']).optional(), model: z.string().trim().min(1).max(160).optional() }), async (input) => {
       check(input.workspaceId, OAUTH_READ_SCOPE); return this.knowledge.getTaskContextPack(input.workspaceId, user, input.taskId, { projection: input.projection, adapter: input.adapter, model: input.model });
     });
+    read('list_task_runs', 'List execution attempts for one task.', workspaceId.extend({ taskId: id }), async (input) => {
+      check(input.workspaceId, OAUTH_READ_SCOPE); return this.execution.listTaskRuns(input.workspaceId, user, input.taskId);
+    });
+    read('get_run', 'Get a run with its Git slices, native sessions, immutable events, and checkpoints.', workspaceId.extend({ runId: id }), async (input) => {
+      check(input.workspaceId, OAUTH_READ_SCOPE); return this.execution.getRun(input.workspaceId, user, input.runId);
+    });
+    read('list_run_events', 'Read a run event stream in sequence order using an optional continuation cursor.', workspaceId.extend({ runId: id, after: z.number().int().nonnegative().optional() }), async (input) => {
+      check(input.workspaceId, OAUTH_READ_SCOPE); return this.execution.listRunEvents(input.workspaceId, user, input.runId, input.after);
+    });
 
     write('create_project', 'Create a project.', workspaceId.merge(projectInput), async (input) => { check(input.workspaceId, OAUTH_WRITE_SCOPE); const { workspaceId: value, ...values } = input; return this.resources.createProject(value, user, values); });
     write('update_project', 'Update a project using its latest expectedVersion.', workspaceId.extend({ projectId: id, expectedVersion: version }).merge(projectInput.partial()), async (input) => {
@@ -70,6 +81,24 @@ export class McpService {
       return this.resources.updateFlow(value, user, flowId, expectedVersion, values);
     });
     write('create_task', 'Create a task.', workspaceId.merge(taskInput), async (input) => { check(input.workspaceId, OAUTH_WRITE_SCOPE); const { workspaceId: value, ...values } = input; return this.resources.createTask(value, user, values); });
+    write('start_run', 'Start an execution attempt. Modifying runs require an immutable starting Git slice.', workspaceId.extend({ taskId: id }).merge(startRunInput), async (input) => {
+      check(input.workspaceId, OAUTH_WRITE_SCOPE); const { workspaceId: value, taskId, ...values } = input; return this.execution.startRun(value, user, taskId, values);
+    });
+    write('append_run_event', 'Append one immutable, idempotent event to a running execution attempt.', workspaceId.extend({ runId: id }).merge(appendRunEventInput), async (input) => {
+      check(input.workspaceId, OAUTH_WRITE_SCOPE); const { workspaceId: value, runId, ...values } = input; return this.execution.appendEvent(value, user, runId, values);
+    });
+    write('capture_git_slice', 'Capture precise intermediate Git state for a running execution attempt.', workspaceId.extend({ runId: id }).merge(gitSliceInput), async (input) => {
+      check(input.workspaceId, OAUTH_WRITE_SCOPE); const { workspaceId: value, runId, ...values } = input; return this.execution.captureGitSlice(value, user, runId, values);
+    });
+    write('attach_native_session', 'Attach a provider-native resumability reference to a running execution attempt.', workspaceId.extend({ runId: id }).merge(nativeSessionInput), async (input) => {
+      check(input.workspaceId, OAUTH_WRITE_SCOPE); const { workspaceId: value, runId, ...values } = input; return this.execution.attachNativeSession(value, user, runId, values);
+    });
+    write('create_run_checkpoint', 'Create an immutable provider-neutral continuation checkpoint for a run.', workspaceId.extend({ runId: id }).merge(checkpointInput), async (input) => {
+      check(input.workspaceId, OAUTH_WRITE_SCOPE); const { workspaceId: value, runId, ...values } = input; return this.execution.createCheckpoint(value, user, runId, values);
+    });
+    write('finish_run', 'Finish a run. Modifying runs must capture their ending Git slice.', workspaceId.extend({ runId: id }).merge(finishRunInput), async (input) => {
+      check(input.workspaceId, OAUTH_WRITE_SCOPE); const { workspaceId: value, runId, ...values } = input; return this.execution.finishRun(value, user, runId, values);
+    });
     write('update_task', 'Update a task. A warned state change requires exact acknowledgedWarnings from preview_transition.', workspaceId.extend({ taskId: id, expectedVersion: version, acknowledgedWarnings: z.array(z.string()).max(20).optional() }).merge(taskInput.partial()), async (input) => {
       check(input.workspaceId, OAUTH_WRITE_SCOPE);
       const { workspaceId: value, taskId, expectedVersion, acknowledgedWarnings, ...values } = input;
@@ -173,4 +202,3 @@ export class McpService {
     return { code: 'TRANSITION_REQUIRES_ACKNOWLEDGEMENT', warnings: preview.warnings, message: 'Preview these warnings and repeat this update with acknowledgedWarnings exactly matching warnings.' };
   }
 }
-

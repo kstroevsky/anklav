@@ -5,11 +5,11 @@ import { KnowledgeModule } from '../portfolio-knowledge/knowledge.module';
 import { OAuthModule } from '../oauth/oauth.module';
 import { ResourceModule } from '../resource/resource.module';
 import { WorkspaceModule } from '../workspace/workspace.module';
+import { ExecutionModule } from '../execution/execution.module';
 
 @Module({
-  imports: [KnowledgeModule, OAuthModule, ResourceModule, WorkspaceModule],
+  imports: [ExecutionModule, KnowledgeModule, OAuthModule, ResourceModule, WorkspaceModule],
   controllers: [McpController],
   providers: [McpService],
 })
 export class McpModule {}
-
