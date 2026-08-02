@@ -471,6 +471,20 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceId}/tasks/{taskId}/events": {
+      "get": {
+        "operationId": "WorkspaceController_taskEvents",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspace"
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceId}/tasks/{taskId}/transition-preview": {
       "get": {
         "operationId": "WorkspaceController_taskTransition",

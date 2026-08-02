@@ -101,19 +101,22 @@ export class WorkspaceController {
   tasks(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Query() query: Record<string, string | undefined>) { return this.resources.listTasks(workspaceId, user(request), query); }
 
   @Post(':workspaceId/tasks')
-  createTask(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Body() body: unknown) { return this.resources.createTask(workspaceId, user(request), parseBody(taskInput, body)); }
+  createTask(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Headers('idempotency-key') idempotencyKey: string | undefined, @Body() body: unknown) { return this.resources.createTask(workspaceId, user(request), parseBody(taskInput, body), idempotencyKey); }
 
   @Get(':workspaceId/tasks/:taskId')
   task(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Req() request: AuthedRequest) { return this.resources.getTask(workspaceId, user(request), taskId); }
 
+  @Get(':workspaceId/tasks/:taskId/events')
+  taskEvents(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Req() request: AuthedRequest) { return this.resources.listTaskEvents(workspaceId, user(request), taskId); }
+
   @Patch(':workspaceId/tasks/:taskId')
-  updateTask(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Body() body: unknown) { return this.resources.updateTask(workspaceId, user(request), taskId, requireVersion(ifMatch), parseBody(taskInput.partial(), body)); }
+  updateTask(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Headers('idempotency-key') idempotencyKey: string | undefined, @Body() body: unknown) { return this.resources.updateTask(workspaceId, user(request), taskId, requireVersion(ifMatch), parseBody(taskInput.partial(), body), idempotencyKey); }
 
   @Get(':workspaceId/tasks/:taskId/transition-preview')
   taskTransition(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Query('stateId') stateId: string, @Req() request: AuthedRequest) { return this.resources.transitionPreview(workspaceId, user(request), 'task', taskId, stateId); }
 
   @Patch(':workspaceId/tasks/:taskId/review')
-  updateReview(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Body() body: unknown) { return this.resources.updateReview(workspaceId, user(request), taskId, requireVersion(ifMatch), parseBody(reviewInput, body)); }
+  updateReview(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Headers('idempotency-key') idempotencyKey: string | undefined, @Body() body: unknown) { return this.resources.updateReview(workspaceId, user(request), taskId, requireVersion(ifMatch), parseBody(reviewInput, body), idempotencyKey); }
 
   @Get(':workspaceId/flows/:flowId/transition-preview')
   flowTransition(@Param('workspaceId') workspaceId: string, @Param('flowId') flowId: string, @Query('stateId') stateId: string, @Req() request: AuthedRequest) { return this.resources.transitionPreview(workspaceId, user(request), 'flow', flowId, stateId); }
@@ -162,10 +165,10 @@ export class WorkspaceController {
   deleteRelation(@Param('workspaceId') workspaceId: string, @Param('kind') kind: 'task' | 'flow', @Param('relationId') relationId: string, @Req() request: AuthedRequest) { return this.resources.deleteRelation(workspaceId, user(request), validRelationKind(kind), relationId); }
 
   @Delete(':workspaceId/:kind/:id')
-  deleteItem(@Param('workspaceId') workspaceId: string, @Param('kind') kind: 'project' | 'flow' | 'task' | 'label' | 'comment', @Param('id') id: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined) { return this.resources.softDelete(workspaceId, user(request), validDeleteKind(kind), id, requireVersion(ifMatch)); }
+  deleteItem(@Param('workspaceId') workspaceId: string, @Param('kind') kind: 'project' | 'flow' | 'task' | 'label' | 'comment', @Param('id') id: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Headers('idempotency-key') idempotencyKey: string | undefined) { return this.resources.softDelete(workspaceId, user(request), validDeleteKind(kind), id, requireVersion(ifMatch), idempotencyKey); }
 
   @Post(':workspaceId/:kind/:id/restore')
-  restoreItem(@Param('workspaceId') workspaceId: string, @Param('kind') kind: 'project' | 'flow' | 'task' | 'label' | 'comment', @Param('id') id: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined) { return this.resources.restore(workspaceId, user(request), validDeleteKind(kind), id, requireVersion(ifMatch)); }
+  restoreItem(@Param('workspaceId') workspaceId: string, @Param('kind') kind: 'project' | 'flow' | 'task' | 'label' | 'comment', @Param('id') id: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined, @Headers('idempotency-key') idempotencyKey: string | undefined) { return this.resources.restore(workspaceId, user(request), validDeleteKind(kind), id, requireVersion(ifMatch), idempotencyKey); }
 
   @Get(':workspaceId/activity')
   activity(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Query('after') after?: string) { return this.resources.activity(workspaceId, user(request), after ? Number(after) : undefined); }

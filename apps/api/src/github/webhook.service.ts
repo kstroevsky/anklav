@@ -70,21 +70,39 @@ export abstract class GitHubWebhookService extends GitHubJobService {
     const [existing] = await this.database.db.select().from(githubIssueLinks).where(and(eq(githubIssueLinks.repositoryId, repository.id), eq(githubIssueLinks.githubIssueId, Number(issue.id)))).limit(1);
     const desiredStateId = action === 'closed' ? mapping.closedStateId : action === 'reopened' || action === 'opened' ? mapping.openStateId : null;
     if (existing) {
-      const set: Record<string, unknown> = { title: String(issue.title), description: String(issue.body ?? ''), updatedAt: new Date(), version: sql`${tasks.version} + 1` };
-      if (desiredStateId) set.workflowStateId = desiredStateId;
-      await this.database.db.update(tasks).set(set as any).where(eq(tasks.id, existing.taskId));
-      await this.database.db.update(githubIssueLinks).set({ syncStatus: 'synced', lastSyncedSnapshot: { title: String(issue.title), description: String(issue.body ?? ''), state: String(issue.state) }, lastError: null, updatedAt: new Date() }).where(eq(githubIssueLinks.id, existing.id));
+      await this.database.db.transaction(async (tx) => this.taskEvents.execute(tx, {
+        workspaceId: connection.workspaceId,
+        idempotencyKey: `github:issue:${repository.id}:${String(issue.id)}:${action}:${String(issue.updated_at ?? '')}`,
+        command: { type: 'github.issue_sync', repositoryId: repository.id, issueId: Number(issue.id), action, updatedAt: issue.updated_at ?? null },
+        source: { type: 'github', repositoryId: repository.id, issueId: Number(issue.id) },
+        operation: async () => {
+          const [before] = await tx.select().from(tasks).where(eq(tasks.id, existing.taskId)).limit(1);
+          if (!before) throw new NotFoundException('Linked task no longer exists.');
+          const set: Record<string, unknown> = { title: String(issue.title), description: String(issue.body ?? ''), updatedAt: new Date(), version: sql`${tasks.version} + 1` };
+          if (desiredStateId) set.workflowStateId = desiredStateId;
+          const [updated] = await tx.update(tasks).set(set as any).where(eq(tasks.id, existing.taskId)).returning();
+          await tx.update(githubIssueLinks).set({ syncStatus: 'synced', lastSyncedSnapshot: { title: String(issue.title), description: String(issue.body ?? ''), state: String(issue.state) }, lastError: null, updatedAt: new Date() }).where(eq(githubIssueLinks.id, existing.id));
+          return { aggregateId: updated!.id, aggregateVersion: updated!.version, eventType: desiredStateId && desiredStateId !== before.workflowStateId ? 'task.status_changed' : 'task.updated', state: updated!, result: updated! };
+        },
+      }));
       return;
     }
     if (!['opened', 'reopened'].includes(action)) return;
     const [defaultState] = await this.database.db.select().from(workflowStates).where(and(eq(workflowStates.workspaceId, connection.workspaceId), eq(workflowStates.entityType, 'task'), eq(workflowStates.isInitial, true), isNull(workflowStates.archivedAt))).limit(1);
     const workflowStateId = mapping.openStateId ?? defaultState?.id;
     if (!workflowStateId) throw new BadRequestException('Workspace does not have an initial task state for GitHub Issues sync.');
-    await this.database.db.transaction(async (tx) => {
-      const identity = await this.allocateTaskIdentity(tx, connection.workspaceId, mapping.projectId);
-      const [task] = await tx.insert(tasks).values({ workspaceId: connection.workspaceId, projectId: mapping.projectId, title: String(issue.title), description: String(issue.body ?? ''), workflowStateId, priority: 'none', ...identity }).returning();
-      await tx.insert(githubIssueLinks).values({ id: uuidv7(), taskId: task!.id, repositoryId: repository.id, githubIssueId: Number(issue.id), nodeId: String(issue.node_id), issueNumber: Number(issue.number), htmlUrl: String(issue.html_url), syncMode: mapping.syncMode, syncStatus: 'synced', lastSyncedSnapshot: { title: String(issue.title), description: String(issue.body ?? ''), state: String(issue.state) } });
-    });
+    await this.database.db.transaction(async (tx) => this.taskEvents.execute(tx, {
+      workspaceId: connection.workspaceId,
+      idempotencyKey: `github:issue:${repository.id}:${String(issue.id)}:created`,
+      command: { type: 'github.issue_create', repositoryId: repository.id, issueId: Number(issue.id), projectId: mapping.projectId },
+      source: { type: 'github', repositoryId: repository.id, issueId: Number(issue.id) },
+      operation: async () => {
+        const identity = await this.allocateTaskIdentity(tx, connection.workspaceId, mapping.projectId);
+        const [task] = await tx.insert(tasks).values({ workspaceId: connection.workspaceId, projectId: mapping.projectId, title: String(issue.title), description: String(issue.body ?? ''), workflowStateId, priority: 'none', ...identity }).returning();
+        await tx.insert(githubIssueLinks).values({ id: uuidv7(), taskId: task!.id, repositoryId: repository.id, githubIssueId: Number(issue.id), nodeId: String(issue.node_id), issueNumber: Number(issue.number), htmlUrl: String(issue.html_url), syncMode: mapping.syncMode, syncStatus: 'synced', lastSyncedSnapshot: { title: String(issue.title), description: String(issue.body ?? ''), state: String(issue.state) } });
+        return { aggregateId: task!.id, aggregateVersion: task!.version, eventType: 'task.created', state: task!, result: task! };
+      },
+    }));
   }
   private async notifyReviewRequest(connection: typeof githubConnections.$inferSelect, githubUserId: number, pullRequest: typeof githubPullRequests.$inferSelect | undefined) {
     if (!pullRequest) return;
@@ -109,7 +127,16 @@ export abstract class GitHubWebhookService extends GitHubJobService {
             : null;
       if (!semantic) continue;
       const [target] = await this.database.db.select({ id: workflowStates.id }).from(workflowStates).where(and(eq(workflowStates.workspaceId, connection.workspaceId), eq(workflowStates.entityType, 'task'), eq(workflowStates.taskSemantic, semantic), isNull(workflowStates.archivedAt))).orderBy(asc(workflowStates.position)).limit(1);
-      if (target && target.id !== task.workflowStateId) await this.database.db.update(tasks).set({ workflowStateId: target.id, version: sql`${tasks.version} + 1`, updatedAt: new Date() }).where(eq(tasks.id, task.id));
+      if (target && target.id !== task.workflowStateId) await this.database.db.transaction(async (tx) => this.taskEvents.execute(tx, {
+        workspaceId: connection.workspaceId,
+        idempotencyKey: `github:pull-request:${pullRequest.id}:task:${task.id}:state:${target.id}:${pullRequest.updatedAt.getTime()}`,
+        command: { type: 'github.pull_request_automation', pullRequestId: pullRequest.id, taskId: task.id, workflowStateId: target.id },
+        source: { type: 'github', pullRequestId: pullRequest.id },
+        operation: async () => {
+          const [updated] = await tx.update(tasks).set({ workflowStateId: target.id, version: sql`${tasks.version} + 1`, updatedAt: new Date() }).where(eq(tasks.id, task.id)).returning();
+          return { aggregateId: updated!.id, aggregateVersion: updated!.version, eventType: 'task.status_changed', state: updated!, result: updated! };
+        },
+      }));
     }
   }
 

@@ -29,13 +29,14 @@ import {
 } from '../db/schema';
 import { decryptIntegrationSecret, GITHUB_API, appJwt, githubFeatureEnabled, githubHeaders, hash } from './helpers';
 import { NotFoundExceptionLike } from './errors';
+import { TaskEventService } from '../resource/task-event.service';
 import { GitHubCredentials, GitHubPayload, issueInput, mappingInput, mergeInput, pullRequestCommentInput, reviewInput, stateInput } from './inputs';
 
 export abstract class GitHubBaseService implements OnModuleInit, OnModuleDestroy {
   protected timer?: NodeJS.Timeout;
   protected lastMaintenanceAt = 0;
   protected abstract processJobs(): Promise<void>;
-  constructor(protected readonly database: DatabaseService, protected readonly workspaces: WorkspaceService) {}
+  constructor(protected readonly database: DatabaseService, protected readonly workspaces: WorkspaceService, protected readonly taskEvents: TaskEventService) {}
 
   onModuleInit() {
     if (githubFeatureEnabled()) this.timer = setInterval(() => void this.processJobs(), 4_000).unref();

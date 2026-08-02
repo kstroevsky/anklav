@@ -4,6 +4,7 @@ import { GitHubService } from '../github';
 import { DatabaseService } from '../db/database.service';
 import { WorkspaceService } from '../workspace.service';
 import { ResourceRelationService } from './relation.service';
+import { TaskEventService } from './task-event.service';
 
 @Injectable()
 export class ResourceService extends ResourceRelationService {
@@ -12,8 +13,8 @@ export class ResourceService extends ResourceRelationService {
     workspaces: WorkspaceService,
     activityService: ActivityService,
     github: GitHubService,
+    taskEvents: TaskEventService,
   ) {
-    super(database, workspaces, activityService, github);
+    super(database, workspaces, activityService, github, taskEvents);
   }
 }
-

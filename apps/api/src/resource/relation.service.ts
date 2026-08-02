@@ -125,10 +125,20 @@ export class ResourceRelationService extends ResourceCollaborationService {  asy
     return { ok: true };
   }
 
-  async softDelete(workspaceId: string, user: AuthUser, kind: 'project' | 'flow' | 'task' | 'label' | 'comment', id: string, version: number) {
+  async softDelete(workspaceId: string, user: AuthUser, kind: 'project' | 'flow' | 'task' | 'label' | 'comment', id: string, version: number, idempotencyKey?: string) {
     const minimum = kind === 'label' ? 'admin' : 'member';
     await this.workspaces.requireMembership(workspaceId, user, minimum);
     const table = kind === 'project' ? projects : kind === 'flow' ? flows : kind === 'task' ? tasks : kind === 'label' ? labels : comments;
+    if (kind === 'task') {
+      const outcome = await this.database.db.transaction(async (tx) => this.taskEvents.execute(tx, { workspaceId, idempotencyKey, command: { type: 'task.delete', id, version }, actor: user, operation: async () => {
+        const before = await this.task(workspaceId, id);
+        const [deleted] = await tx.update(tasks).set({ deletedAt: new Date(), deletedByUserId: user.id, version: sql`${tasks.version} + 1`, updatedAt: new Date() }).where(and(eq(tasks.id, before.id), eq(tasks.version, version), isNull(tasks.deletedAt))).returning();
+        if (!deleted) throw new PreconditionFailedException({ title: 'task was updated elsewhere', current: before });
+        await this.activityService.append(tx, { workspaceId, subjectType: 'task', subjectId: before.id, action: 'soft_deleted', actor: user, before: { name: before.title } });
+        return { aggregateId: deleted.id, aggregateVersion: deleted.version, eventType: 'task.deleted', state: deleted, result: deleted };
+      } }));
+      return outcome.result;
+    }
     const [before] = await (this.database.db as any).select().from(table).where(and(eq((table as any).id, id), eq((table as any).workspaceId, workspaceId), isNull((table as any).deletedAt))).limit(1);
     if (!before) throw new NotFoundException(`${kind} not found.`);
     const [deleted] = await (this.database.db as any).update(table).set({ deletedAt: new Date(), deletedByUserId: user.id, version: sql`${(table as any).version} + 1`, updatedAt: new Date() }).where(and(eq((table as any).id, id), eq((table as any).version, version))).returning();
@@ -137,10 +147,21 @@ export class ResourceRelationService extends ResourceCollaborationService {  asy
     return deleted;
   }
 
-  async restore(workspaceId: string, user: AuthUser, kind: 'project' | 'flow' | 'task' | 'label' | 'comment', id: string, version: number) {
+  async restore(workspaceId: string, user: AuthUser, kind: 'project' | 'flow' | 'task' | 'label' | 'comment', id: string, version: number, idempotencyKey?: string) {
     const minimum = kind === 'label' ? 'admin' : 'member';
     await this.workspaces.requireMembership(workspaceId, user, minimum);
     const table = kind === 'project' ? projects : kind === 'flow' ? flows : kind === 'task' ? tasks : kind === 'label' ? labels : comments;
+    if (kind === 'task') {
+      const outcome = await this.database.db.transaction(async (tx) => this.taskEvents.execute(tx, { workspaceId, idempotencyKey, command: { type: 'task.restore', id, version }, actor: user, operation: async () => {
+        const before = await this.task(workspaceId, id, true);
+        if (!before.deletedAt) throw new NotFoundException('Deleted task not found.');
+        const [restored] = await tx.update(tasks).set({ deletedAt: null, deletedByUserId: null, version: sql`${tasks.version} + 1`, updatedAt: new Date() }).where(and(eq(tasks.id, before.id), eq(tasks.version, version))).returning();
+        if (!restored) throw new PreconditionFailedException({ title: 'task was updated elsewhere', current: before });
+        await this.activityService.append(tx, { workspaceId, subjectType: 'task', subjectId: before.id, action: 'restored', actor: user });
+        return { aggregateId: restored.id, aggregateVersion: restored.version, eventType: 'task.restored', state: restored, result: restored };
+      } }));
+      return outcome.result;
+    }
     const [before] = await (this.database.db as any).select().from(table).where(and(eq((table as any).id, id), eq((table as any).workspaceId, workspaceId))).limit(1);
     if (!before || !before.deletedAt) throw new NotFoundException(`Deleted ${kind} not found.`);
     const [restored] = await (this.database.db as any).update(table).set({ deletedAt: null, deletedByUserId: null, version: sql`${(table as any).version} + 1`, updatedAt: new Date() }).where(and(eq((table as any).id, id), eq((table as any).version, version))).returning();
@@ -209,4 +230,3 @@ export class ResourceRelationService extends ResourceCollaborationService {  asy
     return warnings;
   }
 }
-

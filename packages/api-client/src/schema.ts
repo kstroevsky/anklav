@@ -404,6 +404,22 @@ export interface paths {
         patch: operations["WorkspaceController_updateTask"];
         trace?: never;
     };
+    "/api/v1/workspaces/{workspaceId}/tasks/{taskId}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkspaceController_taskEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/workspaces/{workspaceId}/tasks/{taskId}/transition-preview": {
         parameters: {
             query?: never;
@@ -2467,6 +2483,23 @@ export interface operations {
         };
     };
     WorkspaceController_updateTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    WorkspaceController_taskEvents: {
         parameters: {
             query?: never;
             header?: never;

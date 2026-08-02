@@ -49,6 +49,7 @@ export class McpService {
       check(input.workspaceId, OAUTH_READ_SCOPE); return this.resources.listTasks(input.workspaceId, user, filterPage(input));
     });
     read('get_task', 'Get a full task record, including checklists, relations, comments, and transition warnings.', workspaceId.extend({ taskId: id }), async (input) => { check(input.workspaceId, OAUTH_READ_SCOPE); return this.resources.getTask(input.workspaceId, user, input.taskId); });
+    read('list_task_events', 'Read the canonical, ordered domain event stream for one task.', workspaceId.extend({ taskId: id }), async (input) => { check(input.workspaceId, OAUTH_READ_SCOPE); return this.resources.listTaskEvents(input.workspaceId, user, input.taskId); });
     read('get_activity', 'Get workspace activity after an optional sequence number.', workspaceId.extend({ after: z.number().int().nonnegative().optional() }), async (input) => { check(input.workspaceId, OAUTH_READ_SCOPE); return this.resources.activity(input.workspaceId, user, input.after); });
     read('preview_transition', 'Preview required warnings before changing a task or flow state.', workspaceId.extend({ entityType: z.enum(['task', 'flow']), entityId: id, stateId: id }), async (input) => {
       check(input.workspaceId, OAUTH_READ_SCOPE); return this.resources.transitionPreview(input.workspaceId, user, input.entityType, input.entityId, input.stateId);
@@ -98,7 +99,7 @@ export class McpService {
       if (warning) return warning;
       return this.resources.updateFlow(value, user, flowId, expectedVersion, values);
     });
-    write('create_task', 'Create a task.', workspaceId.merge(taskInput), async (input) => { check(input.workspaceId, OAUTH_WRITE_SCOPE); const { workspaceId: value, ...values } = input; return this.resources.createTask(value, user, values); });
+    write('create_task', 'Create a task idempotently.', workspaceId.extend({ idempotencyKey: z.string().trim().min(1).max(200) }).merge(taskInput), async (input) => { check(input.workspaceId, OAUTH_WRITE_SCOPE); const { workspaceId: value, idempotencyKey, ...values } = input; return this.resources.createTask(value, user, values, idempotencyKey); });
     write('start_run', 'Start an execution attempt. Modifying runs require an immutable starting Git slice.', workspaceId.extend({ taskId: id }).merge(startRunInput), async (input) => {
       check(input.workspaceId, OAUTH_WRITE_SCOPE); const { workspaceId: value, taskId, ...values } = input; return this.execution.startRun(value, user, taskId, values);
     });
@@ -131,12 +132,12 @@ export class McpService {
     });
     write('propose_memory_claim', 'Propose a provenance-backed temporal claim. This does not make the claim verified project truth.', workspaceId.merge(proposeClaimInput), async (input) => { check(input.workspaceId, OAUTH_WRITE_SCOPE); const { workspaceId: value, ...values } = input; return this.memory.proposeClaim(value, user, values); });
     write('propose_project_decision', 'Propose an evidence-backed project decision. Agents cannot accept their own proposal through MCP.', workspaceId.merge(proposeDecisionInput), async (input) => { check(input.workspaceId, OAUTH_WRITE_SCOPE); const { workspaceId: value, ...values } = input; return this.memory.proposeDecision(value, user, values); });
-    write('update_task', 'Update a task. A warned state change requires exact acknowledgedWarnings from preview_transition.', workspaceId.extend({ taskId: id, expectedVersion: version, acknowledgedWarnings: z.array(z.string()).max(20).optional() }).merge(taskInput.partial()), async (input) => {
+    write('update_task', 'Update a task idempotently. A warned state change requires exact acknowledgedWarnings from preview_transition.', workspaceId.extend({ taskId: id, expectedVersion: version, idempotencyKey: z.string().trim().min(1).max(200), acknowledgedWarnings: z.array(z.string()).max(20).optional() }).merge(taskInput.partial()), async (input) => {
       check(input.workspaceId, OAUTH_WRITE_SCOPE);
-      const { workspaceId: value, taskId, expectedVersion, acknowledgedWarnings, ...values } = input;
+      const { workspaceId: value, taskId, expectedVersion, idempotencyKey, acknowledgedWarnings, ...values } = input;
       const warning = await this.acknowledgeTransition(principal, value, 'task', taskId, values.workflowStateId, acknowledgedWarnings);
       if (warning) return warning;
-      return this.resources.updateTask(value, user, taskId, expectedVersion, values);
+      return this.resources.updateTask(value, user, taskId, expectedVersion, values, idempotencyKey);
     });
 
     write('add_comment', 'Add a comment to a task or flow.', workspaceId.extend({ subject: z.enum(['task', 'flow']), subjectId: id }).merge(commentInput), async (input) => {

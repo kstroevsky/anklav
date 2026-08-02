@@ -13,6 +13,7 @@ import { PortfolioImportService, type ImportOverrides } from '../src/portfolio-i
 import { PortfolioImportController } from '../src/portfolio-import.controller';
 import { PortfolioKnowledgeService } from '../src/portfolio-knowledge.service';
 import { ResourceService } from '../src/resource.service';
+import { TaskEventService } from '../src/resource/task-event.service';
 import { WorkspaceService } from '../src/workspace.service';
 
 const describePostgres = process.env.DATABASE_URL ? describe : describe.skip;
@@ -98,8 +99,9 @@ describePostgres('Phase 1.1 PostgreSQL migration safety', () => {
     database = new DatabaseService();
     const activity = new ActivityService();
     workspaceService = new WorkspaceService(database, activity);
-    const github = new GitHubService(database, workspaceService);
-    const resources = new ResourceService(database, workspaceService, activity, github);
+    const taskEvents = new TaskEventService();
+    const github = new GitHubService(database, workspaceService, taskEvents);
+    const resources = new ResourceService(database, workspaceService, activity, github, taskEvents);
     knowledge = new PortfolioKnowledgeService(database, workspaceService, activity, resources, github);
     imports = new PortfolioImportService(database, activity, knowledge);
   });

@@ -10,3 +10,4 @@ export * from './schema/oauth';
 export * from './schema/execution';
 export * from './schema/evidence';
 export * from './schema/memory';
+export * from './schema/events';

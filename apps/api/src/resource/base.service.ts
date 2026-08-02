@@ -32,6 +32,7 @@ import {
 } from '../db/schema';
 import { WorkspaceService } from '../workspace.service';
 import { GitHubService } from '../github';
+import { TaskEventService } from './task-event.service';
 import {
   checklistInput,
   commentInput,
@@ -63,6 +64,7 @@ export abstract class ResourceBase {  constructor(
     protected readonly workspaces: WorkspaceService,
     protected readonly activityService: ActivityService,
     protected readonly github: GitHubService,
+    protected readonly taskEvents: TaskEventService,
   ) {}
 
   protected async state(workspaceId: string, id: string | undefined, entityType: 'task' | 'flow') {
@@ -143,4 +145,3 @@ export abstract class ResourceBase {  constructor(
   protected abstract flowWarnings(workspaceId: string, flow: typeof flows.$inferSelect, semantic: string): Promise<string[]>;
 
 }
-

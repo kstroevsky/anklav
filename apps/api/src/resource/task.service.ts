@@ -95,36 +95,45 @@ export abstract class ResourceTaskService extends ResourceProjectFlowService {  
     return { ...task, identifierAliases: aliases.map((entry) => entry.identifier), project, state, flows: links, checklists, relations, githubIssues: githubIssues.map(({ link, repository }) => ({ ...link, repository })), githubPullRequests: githubPullRequestLinks.map(({ link, pullRequest, repository }) => ({ ...link, pullRequest: { ...pullRequest, repository } })), labels: await this.labelsFor('task', task.id), comments: await this.commentsFor('task', task.id), activity: await this.activityFor(workspaceId, task.id), transitionWarnings: await this.taskWarnings(workspaceId, task, state?.taskSemantic ?? 'inbox') };
   }
 
-  async createTask(workspaceId: string, user: AuthUser, input: z.infer<typeof taskInput>) {
+  async listTaskEvents(workspaceId: string, user: AuthUser, taskId: string) {
     await this.workspaces.requireMembership(workspaceId, user);
-    await this.project(workspaceId, input.projectId);
-    const state = await this.state(workspaceId, input.workflowStateId, 'task');
-    await this.membership(workspaceId, input.assigneeMembershipId);
-    await this.membership(workspaceId, input.reviewerMembershipId);
-    if (input.parentTaskId) await this.task(workspaceId, input.parentTaskId);
-    const { primaryFlowId, relatedFlowIds, workflowStateId: _, ...values } = input;
-    const task = await this.database.db.transaction(async (tx) => {
+    const task = await this.task(workspaceId, taskId, true);
+    return this.taskEvents.list(this.database.db, workspaceId, task.id);
+  }
+
+  async createTask(workspaceId: string, user: AuthUser, input: z.infer<typeof taskInput>, idempotencyKey?: string) {
+    await this.workspaces.requireMembership(workspaceId, user);
+    const outcome = await this.database.db.transaction(async (tx) => this.taskEvents.execute(tx, { workspaceId, idempotencyKey, command: { type: 'task.create', input }, actor: user, operation: async () => {
+      await this.project(workspaceId, input.projectId);
+      const state = await this.state(workspaceId, input.workflowStateId, 'task');
+      await this.membership(workspaceId, input.assigneeMembershipId);
+      await this.membership(workspaceId, input.reviewerMembershipId);
+      if (input.parentTaskId) await this.task(workspaceId, input.parentTaskId);
+      const { primaryFlowId, relatedFlowIds, workflowStateId: _, ...values } = input;
       const identity = await this.allocateTaskIdentifier(tx, workspaceId, input.projectId);
       const [task] = await tx.insert(tasks).values({ workspaceId, ...values, ...identity, workflowStateId: state.id, reviewStatus: values.humanReviewRequired ? 'pending' : 'not_required' }).returning();
       await this.linkTaskFlows(workspaceId, task!, user.id, primaryFlowId, relatedFlowIds ?? [], tx);
       await this.activityService.append(tx, { workspaceId, subjectType: 'task', subjectId: task!.id, action: 'created', actor: user, after: { title: task!.title, projectId: task!.projectId } });
-      return task;
-    });
-    // GitHub writes are asynchronous so a task is never held hostage by a remote outage.
-    void this.github.queueTaskSync(workspaceId, task!.id, 'created').catch(() => undefined);
+      return { aggregateId: task!.id, aggregateVersion: task!.version, eventType: 'task.created', state: task!, result: task! };
+    } }));
+    const task = outcome.result;
+    if (!outcome.replayed) {
+      // GitHub writes are asynchronous so a task is never held hostage by a remote outage.
+      void this.github.queueTaskSync(workspaceId, task.id, 'created').catch(() => undefined);
+    }
     return task;
   }
 
-  async updateTask(workspaceId: string, user: AuthUser, taskId: string, version: number, input: Partial<z.infer<typeof taskInput>>) {
+  async updateTask(workspaceId: string, user: AuthUser, taskId: string, version: number, input: Partial<z.infer<typeof taskInput>>, idempotencyKey?: string) {
     await this.workspaces.requireMembership(workspaceId, user);
-    const before = await this.task(workspaceId, taskId);
-    if (input.projectId) await this.project(workspaceId, input.projectId);
-    if (input.workflowStateId) await this.state(workspaceId, input.workflowStateId, 'task');
-    await this.membership(workspaceId, input.assigneeMembershipId);
-    await this.membership(workspaceId, input.reviewerMembershipId);
-    if (input.parentTaskId) await this.ensureValidParent(workspaceId, before.id, input.parentTaskId);
-    const { primaryFlowId, relatedFlowIds, workflowStateId: _stateId, ...values } = input;
-    const updated = await this.database.db.transaction(async (tx) => {
+    const outcome = await this.database.db.transaction(async (tx) => this.taskEvents.execute(tx, { workspaceId, idempotencyKey, command: { type: 'task.update', taskId, version, input }, actor: user, operation: async () => {
+      const before = await this.task(workspaceId, taskId);
+      if (input.projectId) await this.project(workspaceId, input.projectId);
+      if (input.workflowStateId) await this.state(workspaceId, input.workflowStateId, 'task');
+      await this.membership(workspaceId, input.assigneeMembershipId);
+      await this.membership(workspaceId, input.reviewerMembershipId);
+      if (input.parentTaskId) await this.ensureValidParent(workspaceId, before.id, input.parentTaskId);
+      const { primaryFlowId, relatedFlowIds, workflowStateId: _stateId, ...values } = input;
       const nextState = input.workflowStateId ? await this.state(workspaceId, input.workflowStateId, 'task') : null;
       const timestamps = nextState ? taskTimestamps(nextState.taskSemantic!, before) : {};
       const reviewFields = input.humanReviewRequired === true && !before.humanReviewRequired
@@ -140,10 +149,11 @@ export abstract class ResourceTaskService extends ResourceProjectFlowService {  
       if (primaryFlowId !== undefined || relatedFlowIds !== undefined) await this.linkTaskFlows(workspaceId, updated!, user.id, primaryFlowId ?? null, relatedFlowIds ?? [], tx);
       const transitionWarnings = nextState ? await this.taskWarnings(workspaceId, updated!, nextState.taskSemantic!) : [];
       await this.activityService.append(tx, { workspaceId, subjectType: 'task', subjectId: before.id, action: nextState ? 'updated_with_status_change' : 'updated', actor: user, before: selectChanged(before, values), after: selectChanged(updated!, values), metadata: transitionWarnings.length ? { transitionWarnings } : {} });
-      return { ...updated, transitionWarnings };
-    });
-    void this.github.queueTaskSync(workspaceId, updated!.id, 'updated').catch(() => undefined);
-    return updated;
+      const result = { ...updated!, transitionWarnings };
+      return { aggregateId: updated!.id, aggregateVersion: updated!.version, eventType: nextState ? 'task.status_changed' : 'task.updated', state: updated!, result };
+    } }));
+    if (!outcome.replayed) void this.github.queueTaskSync(workspaceId, outcome.result.id, 'updated').catch(() => undefined);
+    return outcome.result;
   }
 
   async transitionPreview(workspaceId: string, user: AuthUser, type: 'task' | 'flow', id: string, stateId: string) {
@@ -153,20 +163,19 @@ export abstract class ResourceTaskService extends ResourceProjectFlowService {  
     return { warnings: await this.flowWarnings(workspaceId, await this.flow(workspaceId, id), state.flowSemantic!) };
   }
 
-  async updateReview(workspaceId: string, user: AuthUser, taskId: string, version: number, input: z.infer<typeof reviewInput>) {
+  async updateReview(workspaceId: string, user: AuthUser, taskId: string, version: number, input: z.infer<typeof reviewInput>, idempotencyKey?: string) {
     await this.workspaces.requireMembership(workspaceId, user);
-    const before = await this.task(workspaceId, taskId);
-    if (!before.humanReviewRequired) throw new BadRequestException('Human review is not required for this task.');
-    const [updated] = await this.database.db.update(tasks).set({
-      reviewStatus: input.reviewStatus,
-      reviewNote: input.reviewNote,
-      reviewDecidedAt: input.reviewStatus === 'pending' ? null : new Date(),
-      version: sql`${tasks.version} + 1`,
-      updatedAt: new Date(),
-    }).where(and(eq(tasks.id, taskId), eq(tasks.workspaceId, workspaceId), eq(tasks.version, version), isNull(tasks.deletedAt))).returning();
-    if (!updated) throw new PreconditionFailedException({ title: 'Task was updated elsewhere', current: before });
-    await this.activityService.append(this.database.db, { workspaceId, subjectType: 'task', subjectId: taskId, action: 'human_review_updated', actor: user, before: { reviewStatus: before.reviewStatus }, after: { reviewStatus: updated.reviewStatus, reviewNote: input.reviewNote } });
-    return updated;
+    const outcome = await this.database.db.transaction(async (tx) => this.taskEvents.execute(tx, { workspaceId, idempotencyKey, command: { type: 'task.review', taskId, version, input }, actor: user, operation: async () => {
+      const before = await this.task(workspaceId, taskId);
+      if (!before.humanReviewRequired) throw new BadRequestException('Human review is not required for this task.');
+      const [updated] = await tx.update(tasks).set({
+        reviewStatus: input.reviewStatus, reviewNote: input.reviewNote, reviewDecidedAt: input.reviewStatus === 'pending' ? null : new Date(), version: sql`${tasks.version} + 1`, updatedAt: new Date(),
+      }).where(and(eq(tasks.id, before.id), eq(tasks.workspaceId, workspaceId), eq(tasks.version, version), isNull(tasks.deletedAt))).returning();
+      if (!updated) throw new PreconditionFailedException({ title: 'Task was updated elsewhere', current: before });
+      await this.activityService.append(tx, { workspaceId, subjectType: 'task', subjectId: before.id, action: 'human_review_updated', actor: user, before: { reviewStatus: before.reviewStatus }, after: { reviewStatus: updated.reviewStatus, reviewNote: input.reviewNote } });
+      return { aggregateId: updated.id, aggregateVersion: updated.version, eventType: 'task.review_updated', state: updated, result: updated };
+    } }));
+    return outcome.result;
   }
 
   async linkTaskFlows(workspaceId: string, task: typeof tasks.$inferSelect, actorUserId: string, primaryFlowId: string | null | undefined, relatedFlowIds: string[], executor: any = this.database.db) {
@@ -210,4 +219,3 @@ export abstract class ResourceTaskService extends ResourceProjectFlowService {  
 
 
 }
-
