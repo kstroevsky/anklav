@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { type AuthUser, type AuthedRequest, SessionGuard } from '../auth';
 import { parseBody } from '../common/http';
 import { PortfolioKnowledgeService } from './service';
+import { contextPackAdapters, contextPackProjections } from './types';
 import { requireVersion } from '../workspace.service';
 
 const milestoneInput = z.object({
@@ -20,6 +21,7 @@ const artifactInput = z.object({
 const artifactRevisionInput = z.object({ nativeContent: z.string().min(1).max(500_000) });
 const artifactRelationInput = z.object({ toArtifactId: z.string().uuid(), relation: z.enum(['supports', 'contradicts', 'supersedes', 'implements', 'references']) });
 const artifactDispositionInput = z.object({ disposition: z.enum(['superseded', 'rejected']) });
+const contextPackQuery = z.object({ projection: z.enum(contextPackProjections).optional(), adapter: z.enum(contextPackAdapters).optional(), model: z.string().trim().min(1).max(160).optional() });
 
 function user(request: AuthedRequest): AuthUser { return request.user; }
 
@@ -68,6 +70,5 @@ export class PortfolioKnowledgeController {
   promoteCanonical(@Param('workspaceId') workspaceId: string, @Param('artifactId') artifactId: string, @Req() request: AuthedRequest, @Headers('if-match') ifMatch: string | undefined) { return this.knowledge.promoteArtifactCanonical(workspaceId, user(request), artifactId, requireVersion(ifMatch)); }
 
   @Get('tasks/:taskId/context-pack')
-  contextPack(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Req() request: AuthedRequest) { return this.knowledge.getTaskContextPack(workspaceId, user(request), taskId); }
+  contextPack(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Req() request: AuthedRequest, @Query() query: Record<string, string | undefined>) { return this.knowledge.getTaskContextPack(workspaceId, user(request), taskId, contextPackQuery.parse(query)); }
 }
-

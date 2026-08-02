@@ -53,8 +53,8 @@ export class McpService {
     read('get_milestone', 'Get a native milestone and its linked tasks.', workspaceId.extend({ milestoneId: id }), async (input) => {
       check(input.workspaceId, OAUTH_READ_SCOPE); return this.knowledge.getMilestone(input.workspaceId, user, input.milestoneId);
     });
-    read('get_task_context_pack', 'Generate a deterministic task context pack from structured Anklav state and verified/canonical artifacts. Raw sessions and semantic retrieval are intentionally excluded.', workspaceId.extend({ taskId: id }), async (input) => {
-      check(input.workspaceId, OAUTH_READ_SCOPE); return this.knowledge.getTaskContextPack(input.workspaceId, user, input.taskId);
+    read('get_task_context_pack', 'Compile a deterministic task context pack and reproducibility manifest from structured Anklav state and verified/canonical artifacts. Raw sessions and semantic retrieval are intentionally excluded.', workspaceId.extend({ taskId: id, projection: z.enum(['max', 'standard', 'low', 'review', 'handoff']).optional(), adapter: z.enum(['provider_neutral', 'claude', 'codex']).optional(), model: z.string().trim().min(1).max(160).optional() }), async (input) => {
+      check(input.workspaceId, OAUTH_READ_SCOPE); return this.knowledge.getTaskContextPack(input.workspaceId, user, input.taskId, { projection: input.projection, adapter: input.adapter, model: input.model });
     });
 
     write('create_project', 'Create a project.', workspaceId.merge(projectInput), async (input) => { check(input.workspaceId, OAUTH_WRITE_SCOPE); const { workspaceId: value, ...values } = input; return this.resources.createProject(value, user, values); });
@@ -173,5 +173,4 @@ export class McpService {
     return { code: 'TRANSITION_REQUIRES_ACKNOWLEDGEMENT', warnings: preview.warnings, message: 'Preview these warnings and repeat this update with acknowledgedWarnings exactly matching warnings.' };
   }
 }
-
 

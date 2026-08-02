@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { finalizeContextPack } from '../src/portfolio-knowledge.service';
+import { compileContextPack, finalizeContextPack } from '../src/portfolio-knowledge.service';
 
 describe('deterministic context packs', () => {
   it('snapshots the exact structured content before adding its content hash', () => {
@@ -31,5 +31,37 @@ describe('deterministic context packs', () => {
         "version": "1",
       }
     `);
+  });
+
+  it('compiles stable provider-specific projections with an auditable manifest', () => {
+    const core = {
+      version: '1',
+      generatedFrom: { taskId: 'task-7', taskVersion: 3 },
+      taskContract: { identifier: 'ANKLAV-7', acceptanceCriteria: [{ text: 'passes', completed: false }] },
+      project: { name: 'Anklav' },
+      flows: [{ name: 'Control plane' }],
+      acceptedDecisions: [{ id: 'DEC-1', summary: 'Tasks are canonical.' }],
+      verifiedArtifacts: [{ id: 'ART-1' }],
+      sourceProvenance: [{ sourceSystem: 'linear' }],
+      blockers: [],
+      explicitNonGoals: ['Do not ingest raw sessions'],
+    };
+    const first = compileContextPack(core, { projection: 'low', adapter: 'codex', model: 'gpt-5' });
+    const second = compileContextPack(core, { projection: 'low', adapter: 'codex', model: 'gpt-5' });
+
+    expect(second).toEqual(first);
+    expect(first.manifest.target).toEqual({ projection: 'low', adapter: 'codex', model: 'gpt-5' });
+    expect(first.manifest.includedSourceIds).toContain('taskContract');
+    expect(first.manifest.omittedSources).toContainEqual({ sourceId: 'sourceProvenance', reason: 'Excluded by the low projection policy.' });
+    expect(first).not.toHaveProperty('verifiedArtifacts');
+    expect(first.contentHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(first.manifest.packId).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it('uses canonical object ordering when hashing a context core', () => {
+    const left = compileContextPack({ version: '1', taskContract: { title: 'Task', priority: 'high' }, blockers: [] });
+    const right = compileContextPack({ blockers: [], taskContract: { priority: 'high', title: 'Task' }, version: '1' });
+    expect(right.manifest.contextCoreHash).toBe(left.manifest.contextCoreHash);
+    expect(right.contentHash).toBe(left.contentHash);
   });
 });

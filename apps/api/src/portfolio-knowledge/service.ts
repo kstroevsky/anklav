@@ -9,7 +9,7 @@ import { GitHubService } from '../github';
 import { ResourceService } from '../resource.service';
 import { WorkspaceService } from '../workspace.service';
 import { PortfolioArtifactService } from './artifact.service';
-import { finalizeContextPack, nonGoals } from './types';
+import { compileContextPack, type ContextPackOptions, nonGoals } from './types';
 
 @Injectable()
 export class PortfolioKnowledgeService extends PortfolioArtifactService {
@@ -22,7 +22,7 @@ export class PortfolioKnowledgeService extends PortfolioArtifactService {
   ) {
     super(database, workspaces, activity, resources, github);
   }
-  async getTaskContextPack(workspaceId: string, user: AuthUser, taskId: string) {
+  async getTaskContextPack(workspaceId: string, user: AuthUser, taskId: string, options: ContextPackOptions = {}) {
     const task = await this.resources.getTask(workspaceId, user, taskId);
     if (!task.project) throw new NotFoundException('Task project not found.');
     const relatedFlows = [...task.flows].sort((a: any, b: any) => `${a.link.role}:${a.flow.name}`.localeCompare(`${b.link.role}:${b.flow.name}`));
@@ -71,8 +71,8 @@ export class PortfolioKnowledgeService extends PortfolioArtifactService {
       humanReview: { required: task.humanReviewRequired, status: task.reviewStatus, reviewerMembershipId: task.reviewerMembershipId }, blockers,
       explicitNonGoals: task.nonGoals ? task.nonGoals.split('\n').map((entry: string) => entry.replace(/^[-*]\s*/, '').trim()).filter(Boolean) : nonGoals(task.description), semanticRetrieval: { included: false, reason: 'Phase 1 context packs intentionally use deterministic structured and verified Git-backed context only.' },
     };
-    return finalizeContextPack(deterministic);
+    return compileContextPack(deterministic, options);
   }
 }
 
-export { finalizeContextPack } from './types';
+export { compileContextPack, finalizeContextPack } from './types';
