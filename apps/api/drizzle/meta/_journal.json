@@ -71,6 +71,13 @@
       "when": 1785685059730,
       "tag": "0009_steady_iron_lad",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785685841804,
+      "tag": "0010_messy_ezekiel_stane",
+      "breakpoints": true
     }
   ]
 }

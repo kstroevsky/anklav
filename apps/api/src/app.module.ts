@@ -11,8 +11,9 @@ import { ResourceModule } from './resource/resource.module';
 import { WorkspaceModule } from './workspace/workspace.module';
 import { ExecutionModule } from './execution/execution.module';
 import { EvidenceModule } from './evidence/evidence.module';
+import { MemoryModule } from './memory/memory.module';
 
 @Module({
-  imports: [AccountModule, AuthModule, DomainModule, GitHubModule, ImportModule, KnowledgeModule, McpModule, OAuthModule, ResourceModule, WorkspaceModule, ExecutionModule, EvidenceModule],
+  imports: [AccountModule, AuthModule, DomainModule, GitHubModule, ImportModule, KnowledgeModule, McpModule, OAuthModule, ResourceModule, WorkspaceModule, ExecutionModule, EvidenceModule, MemoryModule],
 })
 export class AppModule {}

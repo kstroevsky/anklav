@@ -1,0 +1,2 @@
+import { Module } from '@nestjs/common'; import { DatabaseModule } from '../core/database.module'; import { WorkspaceModule } from '../workspace/workspace.module'; import { MemoryController } from './controller'; import { MemoryService } from './service';
+@Module({ imports: [DatabaseModule, WorkspaceModule], controllers: [MemoryController], providers: [MemoryService], exports: [MemoryService] }) export class MemoryModule {}

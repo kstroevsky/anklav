@@ -12,9 +12,11 @@ import { ExecutionService } from '../execution/service';
 import { appendRunEventInput, checkpointInput, claimLeaseInput, finishRunInput, gitSliceInput, nativeSessionInput, renewLeaseInput, startRunInput } from '../execution/inputs';
 import { EvidenceService } from '../evidence/service';
 import { evidenceArtifactInput } from '../evidence/inputs';
+import { MemoryService } from '../memory/service';
+import { proposeClaimInput, proposeDecisionInput } from '../memory/inputs';
 
 export class McpService {
-  constructor(private readonly oauth: OAuthService, private readonly workspaces: WorkspaceService, private readonly resources: ResourceService, private readonly knowledge: PortfolioKnowledgeService, private readonly execution: ExecutionService, private readonly evidence: EvidenceService) {}
+  constructor(private readonly oauth: OAuthService, private readonly workspaces: WorkspaceService, private readonly resources: ResourceService, private readonly knowledge: PortfolioKnowledgeService, private readonly execution: ExecutionService, private readonly evidence: EvidenceService, private readonly memory: MemoryService) {}
 
   createServer(principal: McpPrincipal): McpServer {
     const server = new McpServer(
@@ -81,6 +83,8 @@ export class McpService {
     read('read_evidence_artifact', 'Read an exact evidence byte range as base64. Continue with nextOffset for large artifacts.', workspaceId.extend({ artifactId: id, offset: z.number().int().nonnegative().optional(), length: z.number().int().min(1).max(1_048_576).optional() }), async (input) => {
       check(input.workspaceId, OAUTH_READ_SCOPE); return this.evidence.readRange(input.workspaceId, user, input.artifactId, input.offset, input.length);
     });
+    read('list_memory_claims', 'List proposed or adjudicated temporal claims; current=true returns only verified non-expired claims.', workspaceId.extend({ projectId: id.optional(), taskId: id.optional(), current: z.boolean().optional() }), async (input) => { check(input.workspaceId, OAUTH_READ_SCOPE); return this.memory.listClaims(input.workspaceId, user, { projectId: input.projectId, taskId: input.taskId, current: input.current }); });
+    read('list_project_decisions', 'List explicit project decisions; current=true returns accepted, non-superseded decisions.', workspaceId.extend({ projectId: id, current: z.boolean().optional() }), async (input) => { check(input.workspaceId, OAUTH_READ_SCOPE); return this.memory.listDecisions(input.workspaceId, user, input.projectId, input.current); });
 
     write('create_project', 'Create a project.', workspaceId.merge(projectInput), async (input) => { check(input.workspaceId, OAUTH_WRITE_SCOPE); const { workspaceId: value, ...values } = input; return this.resources.createProject(value, user, values); });
     write('update_project', 'Update a project using its latest expectedVersion.', workspaceId.extend({ projectId: id, expectedVersion: version }).merge(projectInput.partial()), async (input) => {
@@ -125,6 +129,8 @@ export class McpService {
     write('release_task_lease', 'Release your active task lease.', workspaceId.extend({ leaseId: id }), async (input) => {
       check(input.workspaceId, OAUTH_WRITE_SCOPE); return this.execution.releaseLease(input.workspaceId, user, input.leaseId);
     });
+    write('propose_memory_claim', 'Propose a provenance-backed temporal claim. This does not make the claim verified project truth.', workspaceId.merge(proposeClaimInput), async (input) => { check(input.workspaceId, OAUTH_WRITE_SCOPE); const { workspaceId: value, ...values } = input; return this.memory.proposeClaim(value, user, values); });
+    write('propose_project_decision', 'Propose an evidence-backed project decision. Agents cannot accept their own proposal through MCP.', workspaceId.merge(proposeDecisionInput), async (input) => { check(input.workspaceId, OAUTH_WRITE_SCOPE); const { workspaceId: value, ...values } = input; return this.memory.proposeDecision(value, user, values); });
     write('update_task', 'Update a task. A warned state change requires exact acknowledgedWarnings from preview_transition.', workspaceId.extend({ taskId: id, expectedVersion: version, acknowledgedWarnings: z.array(z.string()).max(20).optional() }).merge(taskInput.partial()), async (input) => {
       check(input.workspaceId, OAUTH_WRITE_SCOPE);
       const { workspaceId: value, taskId, expectedVersion, acknowledgedWarnings, ...values } = input;

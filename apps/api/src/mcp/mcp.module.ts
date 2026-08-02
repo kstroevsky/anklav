@@ -7,9 +7,10 @@ import { ResourceModule } from '../resource/resource.module';
 import { WorkspaceModule } from '../workspace/workspace.module';
 import { ExecutionModule } from '../execution/execution.module';
 import { EvidenceModule } from '../evidence/evidence.module';
+import { MemoryModule } from '../memory/memory.module';
 
 @Module({
-  imports: [EvidenceModule, ExecutionModule, KnowledgeModule, OAuthModule, ResourceModule, WorkspaceModule],
+  imports: [EvidenceModule, ExecutionModule, KnowledgeModule, MemoryModule, OAuthModule, ResourceModule, WorkspaceModule],
   controllers: [McpController],
   providers: [McpService],
 })

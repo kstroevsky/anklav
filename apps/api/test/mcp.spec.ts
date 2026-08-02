@@ -14,6 +14,8 @@ describe('MCP public contract', () => {
     expect(MCP_TOOL_NAMES).toContain('record_evidence_artifact');
     expect(MCP_TOOL_NAMES).toContain('read_evidence_artifact');
     expect(MCP_TOOL_NAMES).toContain('claim_task_lease');
+    expect(MCP_TOOL_NAMES).toContain('propose_memory_claim');
+    expect(MCP_TOOL_NAMES).not.toContain('accept_project_decision');
     expect(MCP_TOOL_NAMES.every((name) => !/(delete_|restore|workspace|member|workflow|account)/.test(name) || ['list_workspaces', 'get_workspace_context'].includes(name))).toBe(true);
   });
 

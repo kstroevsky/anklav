@@ -1713,6 +1713,114 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceId}/memory/claims": {
+      "get": {
+        "operationId": "MemoryController_listClaims",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Memory"
+        ]
+      },
+      "post": {
+        "operationId": "MemoryController_proposeClaim",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Memory"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/memory/claims/{claimId}/resolve": {
+      "post": {
+        "operationId": "MemoryController_resolveClaim",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Memory"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/memory/claims/{claimId}/supersede": {
+      "post": {
+        "operationId": "MemoryController_supersedeClaim",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Memory"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/memory/decisions": {
+      "get": {
+        "operationId": "MemoryController_listDecisions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Memory"
+        ]
+      },
+      "post": {
+        "operationId": "MemoryController_proposeDecision",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Memory"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/memory/decisions/{decisionId}/resolve": {
+      "post": {
+        "operationId": "MemoryController_resolveDecision",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Memory"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/memory/decisions/{decisionId}/supersede": {
+      "post": {
+        "operationId": "MemoryController_supersedeDecision",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Memory"
+        ]
+      }
+    },
     "/.well-known/oauth-protected-resource": {
       "get": {
         "operationId": "OAuthMetadataController_protectedResource",
