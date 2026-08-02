@@ -2,7 +2,7 @@ import { BadRequestException, Body, Controller, Get, Param, Post, Query, Req, Us
 import type { AuthedRequest } from '../auth';
 import { SessionGuard } from '../auth';
 import { parseBody } from '../common/http';
-import { appendRunEventInput, checkpointInput, finishRunInput, gitSliceInput, nativeSessionInput, startRunInput } from './inputs';
+import { appendRunEventInput, checkpointInput, claimLeaseInput, finishRunInput, gitSliceInput, nativeSessionInput, renewLeaseInput, startRunInput } from './inputs';
 import { ExecutionService } from './service';
 
 @UseGuards(SessionGuard)
@@ -12,6 +12,9 @@ export class ExecutionController {
 
   @Get('tasks/:taskId/runs')
   listTaskRuns(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Req() request: AuthedRequest) { return this.execution.listTaskRuns(workspaceId, request.user, taskId); }
+
+  @Get('tasks/:taskId/leases')
+  listTaskLeases(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Req() request: AuthedRequest) { return this.execution.listTaskLeases(workspaceId, request.user, taskId); }
 
   @Post('tasks/:taskId/runs')
   startRun(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Req() request: AuthedRequest, @Body() body: unknown) { return this.execution.startRun(workspaceId, request.user, taskId, parseBody(startRunInput, body)); }
@@ -34,6 +37,15 @@ export class ExecutionController {
 
   @Post('runs/:runId/native-sessions')
   attachNativeSession(@Param('workspaceId') workspaceId: string, @Param('runId') runId: string, @Req() request: AuthedRequest, @Body() body: unknown) { return this.execution.attachNativeSession(workspaceId, request.user, runId, parseBody(nativeSessionInput, body)); }
+
+  @Post('runs/:runId/lease')
+  claimLease(@Param('workspaceId') workspaceId: string, @Param('runId') runId: string, @Req() request: AuthedRequest, @Body() body: unknown) { return this.execution.claimLease(workspaceId, request.user, runId, parseBody(claimLeaseInput, body)); }
+
+  @Post('leases/:leaseId/renew')
+  renewLease(@Param('workspaceId') workspaceId: string, @Param('leaseId') leaseId: string, @Req() request: AuthedRequest, @Body() body: unknown) { return this.execution.renewLease(workspaceId, request.user, leaseId, parseBody(renewLeaseInput, body).ttlSeconds); }
+
+  @Post('leases/:leaseId/release')
+  releaseLease(@Param('workspaceId') workspaceId: string, @Param('leaseId') leaseId: string, @Req() request: AuthedRequest) { return this.execution.releaseLease(workspaceId, request.user, leaseId); }
 
   @Post('runs/:runId/checkpoints')
   createCheckpoint(@Param('workspaceId') workspaceId: string, @Param('runId') runId: string, @Req() request: AuthedRequest, @Body() body: unknown) { return this.execution.createCheckpoint(workspaceId, request.user, runId, parseBody(checkpointInput, body)); }

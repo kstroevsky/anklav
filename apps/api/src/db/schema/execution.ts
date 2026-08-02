@@ -107,3 +107,20 @@ export const runCheckpoints = pgTable('run_checkpoints', {
   createdByUserId: uuid('created_by_user_id').references(() => users.id),
   createdAt: createdAt(),
 }, (table) => [uniqueIndex('run_checkpoints_run_sequence_unique').on(table.runId, table.sequence), index('run_checkpoints_task_created_index').on(table.taskId, table.createdAt)]);
+
+export const taskLeases = pgTable('task_leases', {
+  id: id(),
+  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+  taskId: uuid('task_id').notNull().references(() => tasks.id),
+  runId: uuid('run_id').notNull().references(() => agentRuns.id),
+  activity: text('activity').notNull(),
+  writeAccess: boolean('write_access').notNull().default(false),
+  exclusive: boolean('exclusive').notNull().default(false),
+  pathScope: jsonb('path_scope').$type<string[]>().notNull().default([]),
+  machineIdentity: text('machine_identity').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  lastRenewedAt: timestamp('last_renewed_at', { withTimezone: true }).notNull().defaultNow(),
+  releasedAt: timestamp('released_at', { withTimezone: true }),
+  createdByUserId: uuid('created_by_user_id').references(() => users.id),
+  createdAt: createdAt(),
+}, (table) => [index('task_leases_task_expiry_index').on(table.taskId, table.expiresAt), index('task_leases_run_index').on(table.runId), index('task_leases_workspace_expiry_index').on(table.workspaceId, table.expiresAt)]);

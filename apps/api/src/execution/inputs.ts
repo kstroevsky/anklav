@@ -89,9 +89,22 @@ export const finishRunInput = z.object({
   endingGitSlice: gitSliceInput.optional(),
 });
 
+export const claimLeaseInput = z.object({
+  activity: z.string().trim().min(1).max(500),
+  writeAccess: z.boolean().default(false),
+  exclusive: z.boolean().default(false),
+  pathScope: z.array(z.string().trim().min(1).max(4_000)).max(1_000).default([]),
+  ttlSeconds: z.number().int().min(60).max(3_600).default(900),
+}).superRefine((value, context) => {
+  if (value.exclusive && !value.writeAccess) context.addIssue({ code: 'custom', message: 'Only a write lease may be exclusive.', path: ['exclusive'] });
+});
+
+export const renewLeaseInput = z.object({ ttlSeconds: z.number().int().min(60).max(3_600).default(900) });
+
 export type GitSliceInput = z.infer<typeof gitSliceInput>;
 export type NativeSessionInput = z.infer<typeof nativeSessionInput>;
 export type StartRunInput = z.infer<typeof startRunInput>;
 export type AppendRunEventInput = z.infer<typeof appendRunEventInput>;
 export type CheckpointInput = z.infer<typeof checkpointInput>;
 export type FinishRunInput = z.infer<typeof finishRunInput>;
+export type ClaimLeaseInput = z.infer<typeof claimLeaseInput>;

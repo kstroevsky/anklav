@@ -1561,6 +1561,20 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceId}/tasks/{taskId}/leases": {
+      "get": {
+        "operationId": "ExecutionController_listTaskLeases",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Execution"
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceId}/runs/{runId}": {
       "get": {
         "operationId": "ExecutionController_getRun",
@@ -1618,6 +1632,48 @@
     "/api/v1/workspaces/{workspaceId}/runs/{runId}/native-sessions": {
       "post": {
         "operationId": "ExecutionController_attachNativeSession",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Execution"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/runs/{runId}/lease": {
+      "post": {
+        "operationId": "ExecutionController_claimLease",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Execution"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/leases/{leaseId}/renew": {
+      "post": {
+        "operationId": "ExecutionController_renewLease",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Execution"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/leases/{leaseId}/release": {
+      "post": {
+        "operationId": "ExecutionController_releaseLease",
         "parameters": [],
         "responses": {
           "201": {

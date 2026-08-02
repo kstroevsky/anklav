@@ -1,10 +1,10 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, desc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, isNull, lte, sql } from 'drizzle-orm';
 import type { AuthUser } from '../auth';
 import { DatabaseService } from '../db/database.service';
-import { agentRuns, evidenceArtifacts, evidenceEventLinks, gitSlices, githubConnections, githubRepositories, knowledgeArtifacts, nativeSessions, runCheckpoints, runEvents, tasks } from '../db/schema';
+import { agentRuns, evidenceArtifacts, evidenceEventLinks, gitSlices, githubConnections, githubRepositories, knowledgeArtifacts, nativeSessions, runCheckpoints, runEvents, taskLeases, tasks } from '../db/schema';
 import { WorkspaceService } from '../workspace.service';
-import type { AppendRunEventInput, CheckpointInput, FinishRunInput, GitSliceInput, NativeSessionInput, StartRunInput } from './inputs';
+import type { AppendRunEventInput, CheckpointInput, ClaimLeaseInput, FinishRunInput, GitSliceInput, NativeSessionInput, StartRunInput } from './inputs';
 
 @Injectable()
 export class ExecutionService {
@@ -32,6 +32,47 @@ export class ExecutionService {
     const hasMore = rows.length > 500;
     const items = rows.slice(0, 500);
     return { items, nextAfter: hasMore ? items.at(-1)!.sequence : null };
+  }
+
+  async listTaskLeases(workspaceId: string, user: AuthUser, taskId: string) {
+    await this.requireTask(workspaceId, user, taskId);
+    return this.database.db.select().from(taskLeases).where(and(eq(taskLeases.workspaceId, workspaceId), eq(taskLeases.taskId, taskId), isNull(taskLeases.releasedAt), gt(taskLeases.expiresAt, new Date()))).orderBy(asc(taskLeases.createdAt));
+  }
+
+  async claimLease(workspaceId: string, user: AuthUser, runId: string, input: ClaimLeaseInput) {
+    const run = await this.requireRun(workspaceId, user, runId);
+    if (run.status !== 'running') throw new ConflictException('Only a running execution attempt may hold a task lease.');
+    if (run.modifiesCode && !input.writeAccess) throw new BadRequestException('A modifying run requires a write lease.');
+    const now = new Date();
+    return this.database.db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT id FROM tasks WHERE id = ${run.taskId}::uuid FOR UPDATE`);
+      await tx.update(taskLeases).set({ releasedAt: now }).where(and(eq(taskLeases.taskId, run.taskId), isNull(taskLeases.releasedAt), lte(taskLeases.expiresAt, now)));
+      const active = await tx.select().from(taskLeases).where(and(eq(taskLeases.taskId, run.taskId), isNull(taskLeases.releasedAt), gt(taskLeases.expiresAt, now)));
+      const sameRun = active.find((lease) => lease.runId === runId);
+      if (sameRun) {
+        if (sameRun.activity !== input.activity || sameRun.writeAccess !== input.writeAccess || sameRun.exclusive !== input.exclusive || canonicalJson(sameRun.pathScope) !== canonicalJson(normalizedPaths(input.pathScope))) throw new ConflictException('This run already holds a lease with a different scope. Release it before claiming another.');
+        return { lease: sameRun, overlapWarnings: this.overlapWarnings(active.filter((lease) => lease.id !== sameRun.id), input) };
+      }
+      const overlapWarnings = this.overlapWarnings(active, input);
+      if (input.exclusive && overlapWarnings.length) throw new ConflictException({ message: 'Exclusive task lease overlaps active modifying work.', overlapWarnings });
+      const [lease] = await tx.insert(taskLeases).values({ workspaceId, taskId: run.taskId, runId, activity: input.activity, writeAccess: input.writeAccess, exclusive: input.exclusive, pathScope: normalizedPaths(input.pathScope), machineIdentity: run.machineIdentity, expiresAt: new Date(now.getTime() + input.ttlSeconds * 1_000), createdByUserId: user.id }).returning();
+      return { lease: lease!, overlapWarnings };
+    });
+  }
+
+  async renewLease(workspaceId: string, user: AuthUser, leaseId: string, ttlSeconds: number) {
+    await this.workspaces.requireMembership(workspaceId, user);
+    const now = new Date();
+    const [lease] = await this.database.db.update(taskLeases).set({ expiresAt: new Date(now.getTime() + ttlSeconds * 1_000), lastRenewedAt: now }).where(and(eq(taskLeases.id, leaseId), eq(taskLeases.workspaceId, workspaceId), eq(taskLeases.createdByUserId, user.id), isNull(taskLeases.releasedAt), gt(taskLeases.expiresAt, now))).returning();
+    if (!lease) throw new ConflictException('Lease is missing, expired, released, or owned by another user.');
+    return lease;
+  }
+
+  async releaseLease(workspaceId: string, user: AuthUser, leaseId: string) {
+    await this.workspaces.requireMembership(workspaceId, user);
+    const [lease] = await this.database.db.update(taskLeases).set({ releasedAt: new Date() }).where(and(eq(taskLeases.id, leaseId), eq(taskLeases.workspaceId, workspaceId), eq(taskLeases.createdByUserId, user.id), isNull(taskLeases.releasedAt))).returning();
+    if (!lease) throw new NotFoundException('Active lease not found or owned by another user.');
+    return lease;
   }
 
   async startRun(workspaceId: string, user: AuthUser, taskId: string, input: StartRunInput) {
@@ -115,6 +156,7 @@ export class ExecutionService {
       const endingGitSlice = input.endingGitSlice ? await this.insertGitSlice(tx, workspaceId, run.taskId, runId, 'end', user.id, input.endingGitSlice) : null;
       const [updated] = await tx.update(agentRuns).set({ status: input.status, outcomeSummary: input.outcomeSummary, tokenUsage: input.tokenUsage, costMicros: input.costMicros ?? null, endedAt: new Date() }).where(and(eq(agentRuns.id, runId), eq(agentRuns.workspaceId, workspaceId), eq(agentRuns.status, 'running'))).returning();
       if (!updated) throw new ConflictException('Run has already ended.');
+      await tx.update(taskLeases).set({ releasedAt: new Date() }).where(and(eq(taskLeases.runId, runId), isNull(taskLeases.releasedAt)));
       return { ...updated, endingGitSlice };
     });
   }
@@ -177,10 +219,25 @@ export class ExecutionService {
     const [existing] = await executor.select().from(nativeSessions).where(and(eq(nativeSessions.runId, runId), eq(nativeSessions.provider, provider), eq(nativeSessions.nativeSessionId, input.nativeSessionId))).limit(1);
     return existing!;
   }
+
+  private overlapWarnings(active: Array<typeof taskLeases.$inferSelect>, input: Pick<ClaimLeaseInput, 'writeAccess' | 'pathScope'>) {
+    if (!input.writeAccess) return [];
+    const requestedPaths = normalizedPaths(input.pathScope);
+    return active.filter((lease) => lease.writeAccess && pathsOverlap(requestedPaths, lease.pathScope)).map((lease) => ({ leaseId: lease.id, runId: lease.runId, machineIdentity: lease.machineIdentity, activity: lease.activity, pathScope: lease.pathScope }));
+  }
 }
 
 function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
   if (value && typeof value === 'object') return `{${Object.entries(value as Record<string, unknown>).sort(([left], [right]) => left.localeCompare(right)).map(([key, entry]) => `${JSON.stringify(key)}:${canonicalJson(entry)}`).join(',')}}`;
   return JSON.stringify(value);
+}
+
+export function normalizedPaths(paths: string[]): string[] {
+  return [...new Set(paths.map((path) => path.replace(/^\.\//, '').replace(/\/+$/, '')).filter(Boolean))].sort();
+}
+
+export function pathsOverlap(left: string[], right: string[]): boolean {
+  if (!left.length || !right.length) return true;
+  return left.some((a) => right.some((b) => a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`) || a.includes('*') || b.includes('*')));
 }

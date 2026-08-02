@@ -9,7 +9,7 @@ import { PortfolioKnowledgeService } from '../portfolio-knowledge.service';
 import { anyOutput, id, page, READ, UNLINK, version, workspaceId, WRITE } from './inputs';
 import { failure, resource, success, variable, warningsMatch } from './helpers';
 import { ExecutionService } from '../execution/service';
-import { appendRunEventInput, checkpointInput, finishRunInput, gitSliceInput, nativeSessionInput, startRunInput } from '../execution/inputs';
+import { appendRunEventInput, checkpointInput, claimLeaseInput, finishRunInput, gitSliceInput, nativeSessionInput, renewLeaseInput, startRunInput } from '../execution/inputs';
 import { EvidenceService } from '../evidence/service';
 import { evidenceArtifactInput } from '../evidence/inputs';
 
@@ -69,6 +69,9 @@ export class McpService {
     read('list_run_events', 'Read a run event stream in sequence order using an optional continuation cursor.', workspaceId.extend({ runId: id, after: z.number().int().nonnegative().optional() }), async (input) => {
       check(input.workspaceId, OAUTH_READ_SCOPE); return this.execution.listRunEvents(input.workspaceId, user, input.runId, input.after);
     });
+    read('list_task_leases', 'List unexpired task leases and their declared write/path scopes.', workspaceId.extend({ taskId: id }), async (input) => {
+      check(input.workspaceId, OAUTH_READ_SCOPE); return this.execution.listTaskLeases(input.workspaceId, user, input.taskId);
+    });
     read('list_evidence_artifacts', 'List immutable evidence manifests, optionally scoped to one task or run.', workspaceId.extend({ taskId: id.optional(), runId: id.optional() }), async (input) => {
       check(input.workspaceId, OAUTH_READ_SCOPE); return this.evidence.list(input.workspaceId, user, { taskId: input.taskId, runId: input.runId });
     });
@@ -112,6 +115,15 @@ export class McpService {
     });
     write('record_evidence_artifact', 'Store exact immutable evidence under a server-verified SHA-256 hash and create its manifest.', workspaceId.merge(evidenceArtifactInput), async (input) => {
       check(input.workspaceId, OAUTH_WRITE_SCOPE); const { workspaceId: value, ...values } = input; return this.evidence.record(value, user, values);
+    });
+    write('claim_task_lease', 'Claim an expiring task lease with explicit activity, write access, and path scope.', workspaceId.extend({ runId: id }).merge(claimLeaseInput), async (input) => {
+      check(input.workspaceId, OAUTH_WRITE_SCOPE); const { workspaceId: value, runId, ...values } = input; return this.execution.claimLease(value, user, runId, values);
+    });
+    write('renew_task_lease', 'Renew your active task lease for a bounded duration.', workspaceId.extend({ leaseId: id }).merge(renewLeaseInput), async (input) => {
+      check(input.workspaceId, OAUTH_WRITE_SCOPE); return this.execution.renewLease(input.workspaceId, user, input.leaseId, input.ttlSeconds);
+    });
+    write('release_task_lease', 'Release your active task lease.', workspaceId.extend({ leaseId: id }), async (input) => {
+      check(input.workspaceId, OAUTH_WRITE_SCOPE); return this.execution.releaseLease(input.workspaceId, user, input.leaseId);
     });
     write('update_task', 'Update a task. A warned state change requires exact acknowledgedWarnings from preview_transition.', workspaceId.extend({ taskId: id, expectedVersion: version, acknowledgedWarnings: z.array(z.string()).max(20).optional() }).merge(taskInput.partial()), async (input) => {
       check(input.workspaceId, OAUTH_WRITE_SCOPE);

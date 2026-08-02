@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { checkpointInput, gitSliceInput, startRunInput } from '../src/execution/inputs';
+import { checkpointInput, claimLeaseInput, gitSliceInput, startRunInput } from '../src/execution/inputs';
+import { normalizedPaths, pathsOverlap } from '../src/execution/service';
 
 const slice = { repositoryFullName: 'kstroevsky/anklav', baseCommitSha: 'abcdef1', headCommitSha: 'abcdef2', dirtyState: 'clean' as const };
 
@@ -21,5 +22,13 @@ describe('execution contracts', () => {
     expect(checkpointInput.safeParse({ ...base, coveredEventSequenceStart: 4 }).success).toBe(false);
     expect(checkpointInput.safeParse({ ...base, coveredEventSequenceStart: 5, coveredEventSequenceEnd: 4 }).success).toBe(false);
     expect(checkpointInput.safeParse({ ...base, coveredEventSequenceStart: 4, coveredEventSequenceEnd: 5 }).success).toBe(true);
+  });
+
+  it('normalizes lease scopes and detects overlapping worktree paths', () => {
+    expect(normalizedPaths(['./src/auth/', 'src/auth', 'src/api'])).toEqual(['src/api', 'src/auth']);
+    expect(pathsOverlap(['src/auth'], ['src/auth/session.ts'])).toBe(true);
+    expect(pathsOverlap(['src/auth'], ['src/billing'])).toBe(false);
+    expect(pathsOverlap([], ['src/billing'])).toBe(true);
+    expect(claimLeaseInput.safeParse({ activity: 'Inspect', exclusive: true }).success).toBe(false);
   });
 });
