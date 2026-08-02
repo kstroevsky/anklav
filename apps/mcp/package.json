@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "bin": { "anklav-mcp": "dist/main.js" },
+  "bin": { "anklav": "dist/main.js", "anklav-mcp": "dist/main.js" },
   "scripts": {
     "dev": "tsx src/main.ts",
     "build": "tsc -p tsconfig.json",

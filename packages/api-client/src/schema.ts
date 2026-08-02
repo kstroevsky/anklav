@@ -2114,7 +2114,9 @@ export type $defs = Record<string, never>;
 export interface operations {
     AccountController_list: {
         parameters: {
-            query?: never;
+            query: {
+                q: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2150,7 +2152,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                userId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2320,7 +2324,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2337,7 +2343,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2354,7 +2362,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2371,7 +2381,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2388,7 +2400,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2405,7 +2419,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2422,7 +2438,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                membershipId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2437,9 +2456,13 @@ export interface operations {
     };
     WorkspaceController_workflows: {
         parameters: {
-            query?: never;
+            query: {
+                entity: string;
+            };
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2456,7 +2479,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                entityType: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2473,7 +2499,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                stateId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2490,7 +2519,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                stateId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2507,7 +2539,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2524,7 +2558,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2541,7 +2577,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                repositoryId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2558,7 +2597,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                repositoryId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2575,7 +2617,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                repositoryId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2592,7 +2637,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2609,7 +2656,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2626,7 +2675,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                projectId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2643,7 +2695,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                projectId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2660,7 +2715,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                projectId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2677,7 +2735,11 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                projectId: string;
+                repositoryId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2694,7 +2756,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2711,7 +2775,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2728,7 +2794,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                flowId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2745,7 +2814,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                flowId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2762,7 +2834,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2779,7 +2853,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2796,7 +2872,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                taskId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2813,7 +2892,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                taskId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2830,7 +2912,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                taskId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2845,9 +2930,14 @@ export interface operations {
     };
     WorkspaceController_taskTransition: {
         parameters: {
-            query?: never;
+            query: {
+                stateId: string;
+            };
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                taskId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2864,7 +2954,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                taskId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2879,9 +2972,14 @@ export interface operations {
     };
     WorkspaceController_flowTransition: {
         parameters: {
-            query?: never;
+            query: {
+                stateId: string;
+            };
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                flowId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2898,7 +2996,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                taskId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2915,7 +3016,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                itemId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2932,7 +3036,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                flowId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2949,7 +3056,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                criterionId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2966,7 +3076,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2983,7 +3095,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3000,7 +3114,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                labelId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3017,7 +3134,12 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                subject: string;
+                subjectId: string;
+                labelId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3034,7 +3156,12 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                subject: string;
+                subjectId: string;
+                labelId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3051,7 +3178,11 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                subject: string;
+                subjectId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3068,7 +3199,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                commentId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3085,7 +3219,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                kind: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3102,7 +3239,11 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                kind: string;
+                relationId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3119,7 +3260,11 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                kind: string;
+                id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3136,7 +3281,11 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                kind: string;
+                id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3151,9 +3300,13 @@ export interface operations {
     };
     WorkspaceController_activity: {
         parameters: {
-            query?: never;
+            query: {
+                after: string;
+            };
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3168,9 +3321,13 @@ export interface operations {
     };
     WorkspaceController_changes: {
         parameters: {
-            query?: never;
+            query: {
+                after: string;
+            };
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3187,7 +3344,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3204,7 +3363,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3219,7 +3380,9 @@ export interface operations {
     };
     GitHubPublicController_redirect: {
         parameters: {
-            query?: never;
+            query: {
+                state: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3236,7 +3399,10 @@ export interface operations {
     };
     GitHubPublicController_callback: {
         parameters: {
-            query?: never;
+            query: {
+                code: string;
+                state: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3253,7 +3419,9 @@ export interface operations {
     };
     GitHubPublicController_setup: {
         parameters: {
-            query?: never;
+            query: {
+                state: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3270,7 +3438,10 @@ export interface operations {
     };
     GitHubPublicController_oauth: {
         parameters: {
-            query?: never;
+            query: {
+                code: string;
+                state: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3306,7 +3477,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3323,7 +3496,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3340,7 +3515,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3357,7 +3534,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3374,7 +3553,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                taskRef: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3391,7 +3573,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                taskRef: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3408,7 +3593,11 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                taskRef: string;
+                pullRequestId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3425,7 +3614,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3442,7 +3633,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                pullRequestId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3459,7 +3653,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                pullRequestId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3476,7 +3673,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                pullRequestId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3493,7 +3693,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                pullRequestId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3510,7 +3713,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                pullRequestId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3527,7 +3733,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                pullRequestId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3544,7 +3753,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3561,7 +3772,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3578,7 +3791,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                notificationId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3595,7 +3811,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3612,7 +3830,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                jobId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3629,7 +3850,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3644,9 +3867,13 @@ export interface operations {
     };
     PortfolioImportController_plan: {
         parameters: {
-            query?: never;
+            query: {
+                verifyChecksums: string;
+            };
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3663,7 +3890,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3680,7 +3909,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3697,7 +3928,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3714,7 +3947,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3731,7 +3966,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3748,7 +3985,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3765,7 +4004,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                milestoneId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3782,7 +4024,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                milestoneId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3799,7 +4044,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                milestoneId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3816,7 +4064,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3833,7 +4083,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3850,7 +4102,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                artifactId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3867,7 +4122,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                artifactId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3884,7 +4142,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                artifactId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3901,7 +4162,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                artifactId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3918,7 +4182,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                artifactId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3935,7 +4202,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                artifactId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3952,7 +4222,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                taskId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4086,9 +4359,14 @@ export interface operations {
     };
     EvidenceController_list: {
         parameters: {
-            query?: never;
+            query: {
+                taskId: string;
+                runId: string;
+            };
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4105,7 +4383,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4122,7 +4402,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                artifactId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4139,7 +4422,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                artifactId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4156,7 +4442,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                taskId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4173,7 +4462,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                taskId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4190,7 +4482,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                taskId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4207,7 +4502,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                runId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4222,9 +4520,14 @@ export interface operations {
     };
     ExecutionController_listRunEvents: {
         parameters: {
-            query?: never;
+            query: {
+                after: string;
+            };
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                runId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4241,7 +4544,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                runId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4258,7 +4564,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                runId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4275,7 +4584,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                runId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4292,7 +4604,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                nativeSessionId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4307,9 +4622,14 @@ export interface operations {
     };
     ExecutionController_listNativeSessionItems: {
         parameters: {
-            query?: never;
+            query: {
+                after: string;
+            };
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                nativeSessionId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4326,7 +4646,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                nativeSessionId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4343,7 +4666,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                nativeSessionId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4360,7 +4686,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                runId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4377,7 +4706,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                leaseId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4394,7 +4726,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                leaseId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4411,7 +4746,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                runId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4428,7 +4766,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                runId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4443,9 +4784,15 @@ export interface operations {
     };
     MemoryController_listClaims: {
         parameters: {
-            query?: never;
+            query: {
+                projectId: string;
+                taskId: string;
+                current: string;
+            };
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4462,7 +4809,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4479,7 +4828,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                claimId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4496,7 +4848,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                claimId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4511,9 +4866,14 @@ export interface operations {
     };
     MemoryController_listDecisions: {
         parameters: {
-            query?: never;
+            query: {
+                projectId: string;
+                current: string;
+            };
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4530,7 +4890,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4547,7 +4909,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                decisionId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4564,7 +4929,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                decisionId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4700,7 +5068,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                requestId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4717,7 +5087,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                requestId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4751,7 +5123,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                grantId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4768,7 +5142,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4785,7 +5161,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4802,7 +5180,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4819,7 +5199,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                documentId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4836,7 +5219,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                workspaceId: string;
+                traceId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;

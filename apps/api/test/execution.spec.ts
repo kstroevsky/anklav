@@ -11,9 +11,11 @@ describe('execution contracts', () => {
     expect(startRunInput.safeParse({ ...base, startingGitSlice: slice }).success).toBe(true);
   });
 
-  it('requires a patch artifact whenever dirty work is declared captured', () => {
+  it('requires one exact patch artifact or evidence record whenever dirty work is declared captured', () => {
     expect(gitSliceInput.safeParse({ ...slice, dirtyState: 'dirty_captured' }).success).toBe(false);
     expect(gitSliceInput.safeParse({ ...slice, dirtyState: 'dirty_captured', patchArtifactId: '0198babc-1234-7000-8000-000000000001' }).success).toBe(true);
+    expect(gitSliceInput.safeParse({ ...slice, dirtyState: 'dirty_captured', patchEvidenceArtifactId: '0198babc-1234-7000-8000-000000000002' }).success).toBe(true);
+    expect(gitSliceInput.safeParse({ ...slice, dirtyState: 'dirty_captured', patchArtifactId: '0198babc-1234-7000-8000-000000000001', patchEvidenceArtifactId: '0198babc-1234-7000-8000-000000000002' }).success).toBe(false);
     expect(gitSliceInput.safeParse({ ...slice, patchArtifactId: '0198babc-1234-7000-8000-000000000001' }).success).toBe(false);
   });
 

@@ -17,11 +17,13 @@ export const gitSliceInput = z.object({
   worktreeIdentity: z.string().trim().min(1).max(1_000).nullable().optional(),
   dirtyState: z.enum(['clean', 'dirty_captured', 'dirty_missing', 'unknown']).default('unknown'),
   patchArtifactId: z.string().uuid().nullable().optional(),
+  patchEvidenceArtifactId: z.string().uuid().nullable().optional(),
   submoduleStates: stringMap,
   dependencyLockHashes: stringMap,
 }).superRefine((value, context) => {
-  if (value.dirtyState === 'dirty_captured' && !value.patchArtifactId) context.addIssue({ code: 'custom', message: 'A captured dirty Git slice requires a patch artifact.', path: ['patchArtifactId'] });
-  if (value.dirtyState === 'clean' && value.patchArtifactId) context.addIssue({ code: 'custom', message: 'A clean Git slice cannot reference a dirty patch.', path: ['patchArtifactId'] });
+  if (value.patchArtifactId && value.patchEvidenceArtifactId) context.addIssue({ code: 'custom', message: 'A Git slice may reference one patch representation, not both.' });
+  if (value.dirtyState === 'dirty_captured' && !value.patchArtifactId && !value.patchEvidenceArtifactId) context.addIssue({ code: 'custom', message: 'A captured dirty Git slice requires exact patch evidence.', path: ['patchEvidenceArtifactId'] });
+  if (value.dirtyState === 'clean' && (value.patchArtifactId || value.patchEvidenceArtifactId)) context.addIssue({ code: 'custom', message: 'A clean Git slice cannot reference a dirty patch.' });
 });
 
 export const nativeSessionInput = z.object({

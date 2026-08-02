@@ -1,6 +1,6 @@
 import { bigint, index, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { createdAt, id } from './common';
-import { agentRuns, nativeSessions, runEvents } from './execution';
+import { agentRuns, gitSlices, nativeSessions, runEvents } from './execution';
 import { users, workspaces } from './identity';
 import { projects, tasks } from './work';
 
@@ -44,3 +44,10 @@ export const nativeSessionEvidence = pgTable('native_session_evidence', {
   role: text('role').notNull().default('archive'),
   createdAt: createdAt(),
 }, (table) => [primaryKey({ columns: [table.nativeSessionId, table.evidenceArtifactId] }), index('native_session_evidence_artifact_index').on(table.evidenceArtifactId)]);
+
+export const gitSliceEvidence = pgTable('git_slice_evidence', {
+  gitSliceId: uuid('git_slice_id').notNull().references(() => gitSlices.id),
+  evidenceArtifactId: uuid('evidence_artifact_id').notNull().references(() => evidenceArtifacts.id),
+  role: text('role').notNull().default('dirty_patch'),
+  createdAt: createdAt(),
+}, (table) => [primaryKey({ columns: [table.gitSliceId, table.evidenceArtifactId] }), index('git_slice_evidence_artifact_index').on(table.evidenceArtifactId)]);

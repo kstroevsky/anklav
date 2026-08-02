@@ -4,7 +4,7 @@ import { and, asc, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { AuthUser } from '../auth';
 import { ActivityService } from '../activity.service';
 import { DatabaseService } from '../db/database.service';
-import { agentRuns, evidenceArtifacts, evidenceBlobs, externalObjectMappings, gitSlices, knowledgeArtifacts, memoryClaims, milestoneTasks, milestones, nativeSessions, projectDecisions, projectRepositories, repositories, repositoryArtifactReferences, repositoryLocalAliases, runCheckpoints, taskLeases } from '../db/schema';
+import { agentRuns, evidenceArtifacts, evidenceBlobs, externalObjectMappings, gitSliceEvidence, gitSlices, knowledgeArtifacts, memoryClaims, milestoneTasks, milestones, nativeSessions, projectDecisions, projectRepositories, repositories, repositoryArtifactReferences, repositoryLocalAliases, runCheckpoints, taskLeases } from '../db/schema';
 import { GitHubService } from '../github';
 import { ResourceService } from '../resource.service';
 import { WorkspaceService } from '../workspace.service';
@@ -99,6 +99,7 @@ export class PortfolioKnowledgeService extends PortfolioArtifactService {
           .where(and(eq(gitSlices.workspaceId, workspaceId), eq(gitSlices.taskId, task.id)))
           .orderBy(desc(gitSlices.capturedAt), desc(gitSlices.id))
           .limit(1);
+    const [latestGitSliceEvidence] = latestGitSlice ? await this.database.db.select().from(gitSliceEvidence).where(and(eq(gitSliceEvidence.gitSliceId, latestGitSlice.id), eq(gitSliceEvidence.role, 'dirty_patch'))).limit(1) : [];
     const activeRuns = await this.database.db
       .select({
         id: agentRuns.id,
@@ -242,6 +243,7 @@ export class PortfolioKnowledgeService extends PortfolioArtifactService {
             diffHash: latestGitSlice.diffHash,
             dirtyState: latestGitSlice.dirtyState,
             patchArtifactId: latestGitSlice.patchArtifactId,
+            patchEvidenceArtifactId: latestGitSliceEvidence?.evidenceArtifactId ?? null,
             dependencyLockHashes: latestGitSlice.dependencyLockHashes,
             capturedAt: latestGitSlice.capturedAt,
             warning: ['dirty_missing', 'unknown'].includes(latestGitSlice.dirtyState) ? 'Git state is incomplete and must be reconciled before modifying work continues.' : null,

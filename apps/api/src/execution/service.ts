@@ -3,7 +3,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { and, asc, desc, eq, gt, inArray, isNull, lte, sql } from 'drizzle-orm';
 import type { AuthUser } from '../auth';
 import { DatabaseService } from '../db/database.service';
-import { agentRuns, evidenceArtifacts, evidenceEventLinks, gitSlices, githubConnections, githubRepositories, knowledgeArtifacts, nativeSessionEvidence, nativeSessionIngestions, nativeSessionItems, nativeSessions, nativeSessionTurns, runCheckpoints, runEvents, taskLeases, tasks } from '../db/schema';
+import { agentRuns, evidenceArtifacts, evidenceEventLinks, gitSliceEvidence, gitSlices, githubConnections, githubRepositories, knowledgeArtifacts, nativeSessionEvidence, nativeSessionIngestions, nativeSessionItems, nativeSessions, nativeSessionTurns, runCheckpoints, runEvents, taskLeases, tasks } from '../db/schema';
 import { WorkspaceService } from '../workspace.service';
 import type { AppendRunEventInput, CheckpointInput, ClaimLeaseInput, FinishRunInput, GitSliceInput, NativeSessionIngestionInput, NativeSessionInput, StartRunInput } from './inputs';
 
@@ -27,7 +27,8 @@ export class ExecutionService {
       this.database.db.select().from(runEvents).where(eq(runEvents.runId, runId)).orderBy(asc(runEvents.sequence)).limit(1_000),
       this.database.db.select().from(runCheckpoints).where(eq(runCheckpoints.runId, runId)).orderBy(asc(runCheckpoints.sequence)),
     ]);
-    return { ...run, gitSlices: slices, nativeSessions: sessions, events, checkpoints };
+    const sliceEvidence = slices.length ? await this.database.db.select().from(gitSliceEvidence).where(inArray(gitSliceEvidence.gitSliceId, slices.map((slice) => slice.id))) : [];
+    return { ...run, gitSlices: slices.map((slice) => ({ ...slice, patchEvidenceArtifactId: sliceEvidence.find((entry) => entry.gitSliceId === slice.id && entry.role === 'dirty_patch')?.evidenceArtifactId ?? null })), nativeSessions: sessions, events, checkpoints };
   }
 
   async listRunEvents(workspaceId: string, user: AuthUser, runId: string, after?: number) {
@@ -188,7 +189,7 @@ export class ExecutionService {
       const parent = await this.requireRun(workspaceId, user, input.parentRunId);
       if (parent.taskId !== taskId) throw new BadRequestException('A parent run must execute the same task. Use a child task for delegated work with a different objective.');
     }
-    await this.validateGitSliceReferences(workspaceId, input.startingGitSlice);
+    await this.validateGitSliceReferences(workspaceId, input.startingGitSlice, undefined, taskId);
     await this.validateNativeSessionReferences(workspaceId, input.nativeSession, undefined, taskId);
     return this.database.db.transaction(async (tx) => {
       const [run] = await tx.insert(agentRuns).values({ workspaceId, taskId, parentRunId: input.parentRunId ?? null, provider: input.provider, client: input.client, agentType: input.agentType, model: input.model ?? null, reasoningConfig: input.reasoningConfig, machineIdentity: input.machineIdentity, modifiesCode: input.modifiesCode, permissions: input.permissions, createdByUserId: user.id }).returning();
@@ -221,7 +222,7 @@ export class ExecutionService {
   async captureGitSlice(workspaceId: string, user: AuthUser, runId: string, input: GitSliceInput) {
     const run = await this.requireRun(workspaceId, user, runId);
     if (run.status !== 'running') throw new ConflictException('Git state cannot be captured after a run has ended.');
-    await this.validateGitSliceReferences(workspaceId, input);
+    await this.validateGitSliceReferences(workspaceId, input, runId, run.taskId);
     return this.insertGitSlice(this.database.db, workspaceId, run.taskId, runId, 'checkpoint', user.id, input);
   }
 
@@ -257,7 +258,7 @@ export class ExecutionService {
     const run = await this.requireRun(workspaceId, user, runId);
     if (run.status !== 'running') throw new ConflictException('Run has already ended.');
     if (run.modifiesCode && !input.endingGitSlice) throw new BadRequestException('A modifying run must capture its ending Git slice before it can end.');
-    await this.validateGitSliceReferences(workspaceId, input.endingGitSlice);
+    await this.validateGitSliceReferences(workspaceId, input.endingGitSlice, runId, run.taskId);
     return this.database.db.transaction(async (tx) => {
       const endingGitSlice = input.endingGitSlice ? await this.insertGitSlice(tx, workspaceId, run.taskId, runId, 'end', user.id, input.endingGitSlice) : null;
       const [updated] = await tx.update(agentRuns).set({ status: input.status, outcomeSummary: input.outcomeSummary, tokenUsage: input.tokenUsage, costMicros: input.costMicros ?? null, endedAt: new Date() }).where(and(eq(agentRuns.id, runId), eq(agentRuns.workspaceId, workspaceId), eq(agentRuns.status, 'running'))).returning();
@@ -309,8 +310,9 @@ export class ExecutionService {
     if (rows.length !== uniqueIds.length || (runId && rows.some((entry) => entry.runId && entry.runId !== runId)) || (taskId && rows.some((entry) => entry.taskId && entry.taskId !== taskId))) throw new BadRequestException('Every exact evidence artifact must exist in this workspace and be compatible with the run and task.');
   }
 
-  private async validateGitSliceReferences(workspaceId: string, input?: GitSliceInput) {
+  private async validateGitSliceReferences(workspaceId: string, input?: GitSliceInput, runId?: string, taskId?: string) {
     if (input?.patchArtifactId) await this.requireArtifacts(workspaceId, [input.patchArtifactId]);
+    if (input?.patchEvidenceArtifactId) await this.requireEvidenceArtifacts(workspaceId, [input.patchEvidenceArtifactId], runId, taskId);
     if (input?.githubRepositoryId) {
       const [repository] = await this.database.db.select({ fullName: githubRepositories.fullName }).from(githubRepositories).innerJoin(githubConnections, eq(githubRepositories.connectionId, githubConnections.id)).where(and(eq(githubRepositories.id, input.githubRepositoryId), eq(githubConnections.workspaceId, workspaceId))).limit(1);
       if (!repository || repository.fullName !== input.repositoryFullName) throw new BadRequestException('The Git slice repository must belong to this workspace and match repositoryFullName.');
@@ -324,6 +326,7 @@ export class ExecutionService {
 
   private async insertGitSlice(executor: any, workspaceId: string, taskId: string, runId: string, phase: 'start' | 'end' | 'checkpoint', userId: string, input: GitSliceInput) {
     const [slice] = await executor.insert(gitSlices).values({ workspaceId, taskId, runId, phase, githubRepositoryId: input.githubRepositoryId ?? null, repositoryFullName: input.repositoryFullName, baseCommitSha: input.baseCommitSha, headCommitSha: input.headCommitSha, mergeBaseSha: input.mergeBaseSha ?? null, branchName: input.branchName ?? null, includedPaths: input.includedPaths, excludedPaths: input.excludedPaths, diffHash: input.diffHash ?? null, worktreeIdentity: input.worktreeIdentity ?? null, dirtyState: input.dirtyState, patchArtifactId: input.patchArtifactId ?? null, submoduleStates: input.submoduleStates, dependencyLockHashes: input.dependencyLockHashes, createdByUserId: userId }).returning();
+    if (input.patchEvidenceArtifactId) await executor.insert(gitSliceEvidence).values({ gitSliceId: slice!.id, evidenceArtifactId: input.patchEvidenceArtifactId, role: 'dirty_patch' }).onConflictDoNothing();
     return slice!;
   }
 

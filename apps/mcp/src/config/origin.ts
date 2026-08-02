@@ -1,7 +1,7 @@
 import { platform } from 'node:os';
 
 export function normalizeOrigin(value: string | undefined): string {
-  if (!value) throw new Error('Anklav origin is required. Example: anklav-mcp login https://anklav.example');
+  if (!value) throw new Error('Anklav origin is required. Example: anklav login https://anklav.example');
 
   const url = new URL(value);
   const validProtocol = ['https:', 'http:'].includes(url.protocol);

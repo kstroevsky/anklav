@@ -4,7 +4,7 @@ import { createPkceRequest } from '../oauth/pkce.js';
 import { startOAuthCallback } from '../oauth/callback.js';
 import { openBrowser } from '../platform/browser.js';
 
-const CLIENT_NAME = 'Anklav MCP workspace bridge';
+const CLIENT_NAME = 'Anklav CLI';
 
 export async function runLogin(origin: string): Promise<void> {
   const callback = await startOAuthCallback();
@@ -21,7 +21,7 @@ export async function runLogin(origin: string): Promise<void> {
       state: pkce.state,
     });
 
-    console.error(`Open this URL to authorize Anklav MCP:\n${authorize}`);
+    console.error(`Open this URL to authorize Anklav:\n${authorize}`);
     openBrowser(authorize);
 
     const params = await callback.wait;
@@ -41,7 +41,7 @@ export async function runLogin(origin: string): Promise<void> {
       refreshToken: tokens.refresh_token,
       expiresAt: Date.now() + Number(tokens.expires_in) * 1000,
     });
-    console.error(`Anklav MCP login completed for ${origin}.`);
+    console.error(`Anklav login completed for ${origin}.`);
   } finally {
     callback.close();
   }

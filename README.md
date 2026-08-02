@@ -53,6 +53,45 @@ PostgreSQL data is stored in the `anklav-postgres` Docker volume. The first rele
 
 The GitHub integration is disabled by default. To enable it, provide a public HTTPS `PUBLIC_BASE_URL`, a base64 32-byte `INTEGRATION_ENCRYPTION_KEY`, and set `GITHUB_INTEGRATION_ENABLED=true`; workspace administrators can then create and install a dedicated GitHub App from the GitHub page in Anklav. Repository source and diffs are fetched on demand and are not persisted.
 
+## Cross-device Codex handoff
+
+The `anklav` CLI is the usable handoff path between Codex installations, including installations signed in to different Codex accounts. Both computers authenticate to the same Anklav deployment; Codex account identity is not used to join the work.
+
+Build and install the CLI from this checkout on each computer:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm --filter @anklav/mcp build
+npm install --global ./apps/mcp
+anklav help
+```
+
+Then, from a clone of the repository:
+
+```bash
+anklav login https://anklav.example
+anklav bind --origin https://anklav.example --workspace "Personal" --project "Anklav"
+anklav start "Make session handoff usable" --objective "A second computer can resume safely"
+```
+
+`start` discovers the current repository's Codex rollout under `$CODEX_HOME/sessions`; `sync` uploads newly appended normalized activity. Before leaving computer A:
+
+```bash
+anklav checkpoint --next "Run the remaining acceptance test"
+```
+
+On computer B, clone or update the same repository, log in, bind it, and continue by human-readable task identifier:
+
+```bash
+anklav login https://anklav.example
+anklav bind --origin https://anklav.example --workspace "Personal" --project "Anklav"
+anklav continue ANK-123
+```
+
+The command verifies the repository and commit relationship, restores the exact captured dirty patch when the checkout is clean, starts a child run, and prints the handoff context. It also saves that context privately under `.git/anklav/continuation.md`. Use `anklav status` to inspect the binding and active run, and `anklav finish` when the run is done.
+
+See [the Codex handoff runbook](docs/codex-handoff.md) for the complete two-computer procedure, safety behavior, and current MVP boundaries.
+
 ## MCP access for coding agents
 
 Anklav exposes an OAuth-protected Streamable HTTP MCP server at `https://your-anklav.example/mcp`. It uses dynamic client registration, authorization-code flow with PKCE, opaque rotating tokens, and workspace selection at consent time. Connected clients can be reviewed and revoked in **Settings → Connected clients**.
@@ -62,7 +101,7 @@ Use the remote endpoint in Codex or Claude Code when the host supports browser O
 ```bash
 pnpm --filter @anklav/mcp build
 node apps/mcp/dist/main.js login https://your-anklav.example
-node apps/mcp/dist/main.js stdio https://your-anklav.example
+node apps/mcp/dist/main.js mcp https://your-anklav.example
 ```
 
 The bridge prints the authorization URL to stderr as well as attempting to open it, stores credentials per origin in the platform configuration directory with user-only permissions, refreshes tokens, and never writes credentials to stdout. `logout` removes its local credentials.
@@ -74,7 +113,7 @@ Example stdio configuration:
   "mcpServers": {
     "anklav": {
       "command": "node",
-      "args": ["/absolute/path/to/anklav/apps/mcp/dist/main.js", "stdio", "https://your-anklav.example"]
+      "args": ["/absolute/path/to/anklav/apps/mcp/dist/main.js", "mcp", "https://your-anklav.example"]
     }
   }
 }

@@ -21,7 +21,7 @@ export async function startOAuthCallback(): Promise<OAuthCallback> {
       return;
     }
     response.setHeader('content-type', 'text/html; charset=utf-8');
-    response.end('<!doctype html><title>Anklav MCP</title><p>Authorization complete. You may close this tab.</p>');
+    response.end('<!doctype html><title>Anklav</title><p>Authorization complete. You may close this tab.</p>');
     resolve(url.searchParams);
   });
 

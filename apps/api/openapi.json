@@ -4,7 +4,16 @@
     "/api/v1/accounts": {
       "get": {
         "operationId": "AccountController_list",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "q",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -30,7 +39,16 @@
     "/api/v1/accounts/{userId}/password": {
       "patch": {
         "operationId": "AccountController_resetPassword",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -168,7 +186,16 @@
     "/api/v1/workspaces/{workspaceId}": {
       "patch": {
         "operationId": "WorkspaceController_update",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -180,7 +207,16 @@
       },
       "delete": {
         "operationId": "WorkspaceController_delete",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -194,7 +230,16 @@
     "/api/v1/workspaces/{workspaceId}/restore": {
       "post": {
         "operationId": "WorkspaceController_restore",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -208,7 +253,16 @@
     "/api/v1/workspaces/{workspaceId}/members": {
       "get": {
         "operationId": "WorkspaceController_members",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -220,7 +274,16 @@
       },
       "post": {
         "operationId": "WorkspaceController_addMember",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -234,7 +297,16 @@
     "/api/v1/workspaces/{workspaceId}/available-users": {
       "get": {
         "operationId": "WorkspaceController_availableUsers",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -248,7 +320,24 @@
     "/api/v1/workspaces/{workspaceId}/members/{membershipId}": {
       "patch": {
         "operationId": "WorkspaceController_updateMember",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "membershipId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -262,7 +351,24 @@
     "/api/v1/workspaces/{workspaceId}/workflows": {
       "get": {
         "operationId": "WorkspaceController_workflows",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entity",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -276,7 +382,24 @@
     "/api/v1/workspaces/{workspaceId}/workflows/{entityType}": {
       "post": {
         "operationId": "WorkspaceController_createWorkflow",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entityType",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -290,7 +413,24 @@
     "/api/v1/workspaces/{workspaceId}/workflows/{stateId}": {
       "patch": {
         "operationId": "WorkspaceController_updateWorkflow",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stateId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -304,7 +444,24 @@
     "/api/v1/workspaces/{workspaceId}/workflows/{stateId}/archive": {
       "post": {
         "operationId": "WorkspaceController_archiveWorkflow",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stateId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -318,7 +475,16 @@
     "/api/v1/workspaces/{workspaceId}/repositories": {
       "get": {
         "operationId": "WorkspaceController_repositories",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -330,7 +496,16 @@
       },
       "post": {
         "operationId": "WorkspaceController_createRepository",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -344,7 +519,24 @@
     "/api/v1/workspaces/{workspaceId}/repositories/{repositoryId}": {
       "get": {
         "operationId": "WorkspaceController_repository",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repositoryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -356,7 +548,24 @@
       },
       "patch": {
         "operationId": "WorkspaceController_updateRepository",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repositoryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -370,7 +579,24 @@
     "/api/v1/workspaces/{workspaceId}/repositories/{repositoryId}/aliases": {
       "post": {
         "operationId": "WorkspaceController_setRepositoryAlias",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repositoryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -384,7 +610,16 @@
     "/api/v1/workspaces/{workspaceId}/projects": {
       "get": {
         "operationId": "WorkspaceController_projects",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -396,7 +631,16 @@
       },
       "post": {
         "operationId": "WorkspaceController_createProject",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -410,7 +654,24 @@
     "/api/v1/workspaces/{workspaceId}/projects/{projectId}": {
       "get": {
         "operationId": "WorkspaceController_project",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -422,7 +683,24 @@
       },
       "patch": {
         "operationId": "WorkspaceController_updateProject",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -436,7 +714,24 @@
     "/api/v1/workspaces/{workspaceId}/projects/{projectId}/repositories": {
       "post": {
         "operationId": "WorkspaceController_linkProjectRepository",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -450,7 +745,32 @@
     "/api/v1/workspaces/{workspaceId}/projects/{projectId}/repositories/{repositoryId}": {
       "delete": {
         "operationId": "WorkspaceController_unlinkProjectRepository",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repositoryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -464,7 +784,16 @@
     "/api/v1/workspaces/{workspaceId}/flows": {
       "get": {
         "operationId": "WorkspaceController_flows",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -476,7 +805,16 @@
       },
       "post": {
         "operationId": "WorkspaceController_createFlow",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -490,7 +828,24 @@
     "/api/v1/workspaces/{workspaceId}/flows/{flowId}": {
       "get": {
         "operationId": "WorkspaceController_flow",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "flowId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -502,7 +857,24 @@
       },
       "patch": {
         "operationId": "WorkspaceController_updateFlow",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "flowId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -516,7 +888,16 @@
     "/api/v1/workspaces/{workspaceId}/tasks": {
       "get": {
         "operationId": "WorkspaceController_tasks",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -528,7 +909,16 @@
       },
       "post": {
         "operationId": "WorkspaceController_createTask",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -542,7 +932,24 @@
     "/api/v1/workspaces/{workspaceId}/tasks/{taskId}": {
       "get": {
         "operationId": "WorkspaceController_task",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -554,7 +961,24 @@
       },
       "patch": {
         "operationId": "WorkspaceController_updateTask",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -568,7 +992,24 @@
     "/api/v1/workspaces/{workspaceId}/tasks/{taskId}/events": {
       "get": {
         "operationId": "WorkspaceController_taskEvents",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -582,7 +1023,32 @@
     "/api/v1/workspaces/{workspaceId}/tasks/{taskId}/transition-preview": {
       "get": {
         "operationId": "WorkspaceController_taskTransition",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stateId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -596,7 +1062,24 @@
     "/api/v1/workspaces/{workspaceId}/tasks/{taskId}/review": {
       "patch": {
         "operationId": "WorkspaceController_updateReview",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -610,7 +1093,32 @@
     "/api/v1/workspaces/{workspaceId}/flows/{flowId}/transition-preview": {
       "get": {
         "operationId": "WorkspaceController_flowTransition",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "flowId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stateId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -624,7 +1132,24 @@
     "/api/v1/workspaces/{workspaceId}/tasks/{taskId}/checklists": {
       "post": {
         "operationId": "WorkspaceController_createChecklist",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -638,7 +1163,24 @@
     "/api/v1/workspaces/{workspaceId}/checklists/{itemId}": {
       "patch": {
         "operationId": "WorkspaceController_updateChecklist",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "itemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -652,7 +1194,24 @@
     "/api/v1/workspaces/{workspaceId}/flows/{flowId}/criteria": {
       "post": {
         "operationId": "WorkspaceController_createCriterion",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "flowId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -666,7 +1225,24 @@
     "/api/v1/workspaces/{workspaceId}/criteria/{criterionId}": {
       "patch": {
         "operationId": "WorkspaceController_updateCriterion",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "criterionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -680,7 +1256,16 @@
     "/api/v1/workspaces/{workspaceId}/labels": {
       "get": {
         "operationId": "WorkspaceController_labels",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -692,7 +1277,16 @@
       },
       "post": {
         "operationId": "WorkspaceController_createLabel",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -706,7 +1300,24 @@
     "/api/v1/workspaces/{workspaceId}/labels/{labelId}": {
       "patch": {
         "operationId": "WorkspaceController_updateLabel",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "labelId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -720,7 +1331,40 @@
     "/api/v1/workspaces/{workspaceId}/{subject}/{subjectId}/labels/{labelId}": {
       "post": {
         "operationId": "WorkspaceController_assignLabel",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subject",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subjectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "labelId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -732,7 +1376,40 @@
       },
       "delete": {
         "operationId": "WorkspaceController_unassignLabel",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subject",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subjectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "labelId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -746,7 +1423,32 @@
     "/api/v1/workspaces/{workspaceId}/{subject}/{subjectId}/comments": {
       "post": {
         "operationId": "WorkspaceController_createComment",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subject",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subjectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -760,7 +1462,24 @@
     "/api/v1/workspaces/{workspaceId}/comments/{commentId}": {
       "patch": {
         "operationId": "WorkspaceController_updateComment",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "commentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -774,7 +1493,24 @@
     "/api/v1/workspaces/{workspaceId}/{kind}/relations": {
       "post": {
         "operationId": "WorkspaceController_createRelation",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -788,7 +1524,32 @@
     "/api/v1/workspaces/{workspaceId}/{kind}/relations/{relationId}": {
       "delete": {
         "operationId": "WorkspaceController_deleteRelation",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "relationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -802,7 +1563,32 @@
     "/api/v1/workspaces/{workspaceId}/{kind}/{id}": {
       "delete": {
         "operationId": "WorkspaceController_deleteItem",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -816,7 +1602,32 @@
     "/api/v1/workspaces/{workspaceId}/{kind}/{id}/restore": {
       "post": {
         "operationId": "WorkspaceController_restoreItem",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -830,7 +1641,24 @@
     "/api/v1/workspaces/{workspaceId}/activity": {
       "get": {
         "operationId": "WorkspaceController_activity",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "after",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -844,7 +1672,24 @@
     "/api/v1/workspaces/{workspaceId}/changes": {
       "get": {
         "operationId": "WorkspaceController_changes",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "after",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -858,7 +1703,16 @@
     "/api/v1/workspaces/{workspaceId}/search": {
       "get": {
         "operationId": "WorkspaceController_search",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -872,7 +1726,16 @@
     "/api/v1/workspaces/{workspaceId}/trash": {
       "get": {
         "operationId": "WorkspaceController_trash",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -886,7 +1749,16 @@
     "/api/v1/github/manifest/redirect": {
       "get": {
         "operationId": "GitHubPublicController_redirect",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "state",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -900,7 +1772,24 @@
     "/api/v1/github/manifest/callback": {
       "get": {
         "operationId": "GitHubPublicController_callback",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "code",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -914,7 +1803,16 @@
     "/api/v1/github/manifest/setup": {
       "get": {
         "operationId": "GitHubPublicController_setup",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "state",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -928,7 +1826,24 @@
     "/api/v1/github/oauth/callback": {
       "get": {
         "operationId": "GitHubPublicController_oauth",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "code",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -956,7 +1871,16 @@
     "/api/v1/workspaces/{workspaceId}/github": {
       "get": {
         "operationId": "GitHubController_status",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -970,7 +1894,16 @@
     "/api/v1/workspaces/{workspaceId}/github/manifest": {
       "post": {
         "operationId": "GitHubController_manifest",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -984,7 +1917,16 @@
     "/api/v1/workspaces/{workspaceId}/github/account": {
       "post": {
         "operationId": "GitHubController_account",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -998,7 +1940,16 @@
     "/api/v1/workspaces/{workspaceId}/github/repositories/mappings": {
       "post": {
         "operationId": "GitHubController_mapping",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1012,7 +1963,24 @@
     "/api/v1/workspaces/{workspaceId}/github/tasks/{taskRef}/branch": {
       "get": {
         "operationId": "GitHubController_branch",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskRef",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1026,7 +1994,24 @@
     "/api/v1/workspaces/{workspaceId}/github/tasks/{taskRef}/issues": {
       "post": {
         "operationId": "GitHubController_issue",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskRef",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1040,7 +2025,32 @@
     "/api/v1/workspaces/{workspaceId}/github/tasks/{taskRef}/pull-requests/{pullRequestId}": {
       "post": {
         "operationId": "GitHubController_pullRequest",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskRef",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pullRequestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1054,7 +2064,16 @@
     "/api/v1/workspaces/{workspaceId}/github/reviews": {
       "get": {
         "operationId": "GitHubController_reviews",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1068,7 +2087,24 @@
     "/api/v1/workspaces/{workspaceId}/github/reviews/{pullRequestId}": {
       "get": {
         "operationId": "GitHubController_review",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pullRequestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1082,7 +2118,24 @@
     "/api/v1/workspaces/{workspaceId}/github/reviews/{pullRequestId}/diff": {
       "get": {
         "operationId": "GitHubController_diff",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pullRequestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1096,7 +2149,24 @@
     "/api/v1/workspaces/{workspaceId}/github/reviews/{pullRequestId}/reviews": {
       "post": {
         "operationId": "GitHubController_submitReview",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pullRequestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1110,7 +2180,24 @@
     "/api/v1/workspaces/{workspaceId}/github/reviews/{pullRequestId}/comments": {
       "post": {
         "operationId": "GitHubController_comment",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pullRequestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1124,7 +2211,24 @@
     "/api/v1/workspaces/{workspaceId}/github/reviews/{pullRequestId}/ready": {
       "post": {
         "operationId": "GitHubController_ready",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pullRequestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1138,7 +2242,24 @@
     "/api/v1/workspaces/{workspaceId}/github/reviews/{pullRequestId}/merge": {
       "post": {
         "operationId": "GitHubController_merge",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pullRequestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1152,7 +2273,16 @@
     "/api/v1/workspaces/{workspaceId}/github/notifications": {
       "get": {
         "operationId": "GitHubController_notifications",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1166,7 +2296,16 @@
     "/api/v1/workspaces/{workspaceId}/github/notifications/unread-count": {
       "get": {
         "operationId": "GitHubController_unreadCount",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1180,7 +2319,24 @@
     "/api/v1/workspaces/{workspaceId}/github/notifications/{notificationId}/read": {
       "patch": {
         "operationId": "GitHubController_read",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "notificationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1194,7 +2350,16 @@
     "/api/v1/workspaces/{workspaceId}/github/health": {
       "get": {
         "operationId": "GitHubController_health",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1208,7 +2373,24 @@
     "/api/v1/workspaces/{workspaceId}/github/jobs/{jobId}/retry": {
       "post": {
         "operationId": "GitHubController_retryJob",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1222,7 +2404,16 @@
     "/api/v1/workspaces/{workspaceId}/github/disconnect": {
       "post": {
         "operationId": "GitHubController_disconnect",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1236,7 +2427,24 @@
     "/api/v1/workspaces/{workspaceId}/imports/anklav/plan": {
       "get": {
         "operationId": "PortfolioImportController_plan",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "verifyChecksums",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1250,7 +2458,16 @@
     "/api/v1/workspaces/{workspaceId}/imports/anklav/apply": {
       "post": {
         "operationId": "PortfolioImportController_apply",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1264,7 +2481,16 @@
     "/api/v1/workspaces/{workspaceId}/imports/anklav/resume": {
       "post": {
         "operationId": "PortfolioImportController_resume",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1278,7 +2504,16 @@
     "/api/v1/workspaces/{workspaceId}/imports/anklav/verify": {
       "post": {
         "operationId": "PortfolioImportController_verify",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1292,7 +2527,16 @@
     "/api/v1/workspaces/{workspaceId}/imports/anklav/rollback": {
       "post": {
         "operationId": "PortfolioImportController_rollback",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1306,7 +2550,16 @@
     "/api/v1/workspaces/{workspaceId}/milestones": {
       "get": {
         "operationId": "PortfolioKnowledgeController_listMilestones",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1318,7 +2571,16 @@
       },
       "post": {
         "operationId": "PortfolioKnowledgeController_createMilestone",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1332,7 +2594,24 @@
     "/api/v1/workspaces/{workspaceId}/milestones/{milestoneId}": {
       "get": {
         "operationId": "PortfolioKnowledgeController_getMilestone",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "milestoneId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1344,7 +2623,24 @@
       },
       "patch": {
         "operationId": "PortfolioKnowledgeController_updateMilestone",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "milestoneId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1356,7 +2652,24 @@
       },
       "delete": {
         "operationId": "PortfolioKnowledgeController_deleteMilestone",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "milestoneId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1370,7 +2683,16 @@
     "/api/v1/workspaces/{workspaceId}/knowledge-artifacts": {
       "get": {
         "operationId": "PortfolioKnowledgeController_listArtifacts",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1382,7 +2704,16 @@
       },
       "post": {
         "operationId": "PortfolioKnowledgeController_recordArtifact",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1396,7 +2727,24 @@
     "/api/v1/workspaces/{workspaceId}/knowledge-artifacts/{artifactId}": {
       "get": {
         "operationId": "PortfolioKnowledgeController_getArtifact",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "artifactId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1410,7 +2758,24 @@
     "/api/v1/workspaces/{workspaceId}/knowledge-artifacts/{artifactId}/revisions": {
       "post": {
         "operationId": "PortfolioKnowledgeController_addArtifactRevision",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "artifactId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1424,7 +2789,24 @@
     "/api/v1/workspaces/{workspaceId}/knowledge-artifacts/{artifactId}/relations": {
       "post": {
         "operationId": "PortfolioKnowledgeController_relateArtifacts",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "artifactId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1438,7 +2820,24 @@
     "/api/v1/workspaces/{workspaceId}/knowledge-artifacts/{artifactId}/disposition": {
       "post": {
         "operationId": "PortfolioKnowledgeController_disposition",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "artifactId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1452,7 +2851,24 @@
     "/api/v1/workspaces/{workspaceId}/knowledge-artifacts/{artifactId}/verify-git": {
       "post": {
         "operationId": "PortfolioKnowledgeController_verifyGit",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "artifactId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1466,7 +2882,24 @@
     "/api/v1/workspaces/{workspaceId}/knowledge-artifacts/{artifactId}/promote-canonical": {
       "post": {
         "operationId": "PortfolioKnowledgeController_promoteCanonical",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "artifactId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1480,7 +2913,24 @@
     "/api/v1/workspaces/{workspaceId}/tasks/{taskId}/context-pack": {
       "get": {
         "operationId": "PortfolioKnowledgeController_contextPack",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1592,7 +3042,32 @@
     "/api/v1/workspaces/{workspaceId}/evidence-artifacts": {
       "get": {
         "operationId": "EvidenceController_list",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1604,7 +3079,16 @@
       },
       "post": {
         "operationId": "EvidenceController_record",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1618,7 +3102,24 @@
     "/api/v1/workspaces/{workspaceId}/evidence-artifacts/{artifactId}": {
       "get": {
         "operationId": "EvidenceController_get",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "artifactId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1632,7 +3133,24 @@
     "/api/v1/workspaces/{workspaceId}/evidence-artifacts/{artifactId}/content": {
       "get": {
         "operationId": "EvidenceController_content",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "artifactId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1646,7 +3164,24 @@
     "/api/v1/workspaces/{workspaceId}/tasks/{taskId}/runs": {
       "get": {
         "operationId": "ExecutionController_listTaskRuns",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1658,7 +3193,24 @@
       },
       "post": {
         "operationId": "ExecutionController_startRun",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1672,7 +3224,24 @@
     "/api/v1/workspaces/{workspaceId}/tasks/{taskId}/leases": {
       "get": {
         "operationId": "ExecutionController_listTaskLeases",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1686,7 +3255,24 @@
     "/api/v1/workspaces/{workspaceId}/runs/{runId}": {
       "get": {
         "operationId": "ExecutionController_getRun",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1700,7 +3286,32 @@
     "/api/v1/workspaces/{workspaceId}/runs/{runId}/events": {
       "get": {
         "operationId": "ExecutionController_listRunEvents",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "after",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1712,7 +3323,24 @@
       },
       "post": {
         "operationId": "ExecutionController_appendEvent",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1726,7 +3354,24 @@
     "/api/v1/workspaces/{workspaceId}/runs/{runId}/git-slices": {
       "post": {
         "operationId": "ExecutionController_captureGitSlice",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1740,7 +3385,24 @@
     "/api/v1/workspaces/{workspaceId}/runs/{runId}/native-sessions": {
       "post": {
         "operationId": "ExecutionController_attachNativeSession",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1754,7 +3416,24 @@
     "/api/v1/workspaces/{workspaceId}/native-sessions/{nativeSessionId}": {
       "get": {
         "operationId": "ExecutionController_getNativeSession",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "nativeSessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1768,7 +3447,32 @@
     "/api/v1/workspaces/{workspaceId}/native-sessions/{nativeSessionId}/items": {
       "get": {
         "operationId": "ExecutionController_listNativeSessionItems",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "nativeSessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "after",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1782,7 +3486,24 @@
     "/api/v1/workspaces/{workspaceId}/native-sessions/{nativeSessionId}/ingestions": {
       "get": {
         "operationId": "ExecutionController_listNativeSessionIngestions",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "nativeSessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1794,7 +3515,24 @@
       },
       "post": {
         "operationId": "ExecutionController_ingestNativeSession",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "nativeSessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1808,7 +3546,24 @@
     "/api/v1/workspaces/{workspaceId}/runs/{runId}/lease": {
       "post": {
         "operationId": "ExecutionController_claimLease",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1822,7 +3577,24 @@
     "/api/v1/workspaces/{workspaceId}/leases/{leaseId}/renew": {
       "post": {
         "operationId": "ExecutionController_renewLease",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "leaseId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1836,7 +3608,24 @@
     "/api/v1/workspaces/{workspaceId}/leases/{leaseId}/release": {
       "post": {
         "operationId": "ExecutionController_releaseLease",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "leaseId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1850,7 +3639,24 @@
     "/api/v1/workspaces/{workspaceId}/runs/{runId}/checkpoints": {
       "post": {
         "operationId": "ExecutionController_createCheckpoint",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1864,7 +3670,24 @@
     "/api/v1/workspaces/{workspaceId}/runs/{runId}/finish": {
       "post": {
         "operationId": "ExecutionController_finishRun",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1878,7 +3701,40 @@
     "/api/v1/workspaces/{workspaceId}/memory/claims": {
       "get": {
         "operationId": "MemoryController_listClaims",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "current",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1890,7 +3746,16 @@
       },
       "post": {
         "operationId": "MemoryController_proposeClaim",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1904,7 +3769,24 @@
     "/api/v1/workspaces/{workspaceId}/memory/claims/{claimId}/resolve": {
       "post": {
         "operationId": "MemoryController_resolveClaim",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "claimId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1918,7 +3800,24 @@
     "/api/v1/workspaces/{workspaceId}/memory/claims/{claimId}/supersede": {
       "post": {
         "operationId": "MemoryController_supersedeClaim",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "claimId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1932,7 +3831,32 @@
     "/api/v1/workspaces/{workspaceId}/memory/decisions": {
       "get": {
         "operationId": "MemoryController_listDecisions",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "current",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1944,7 +3868,16 @@
       },
       "post": {
         "operationId": "MemoryController_proposeDecision",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1958,7 +3891,24 @@
     "/api/v1/workspaces/{workspaceId}/memory/decisions/{decisionId}/resolve": {
       "post": {
         "operationId": "MemoryController_resolveDecision",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "decisionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -1972,7 +3922,24 @@
     "/api/v1/workspaces/{workspaceId}/memory/decisions/{decisionId}/supersede": {
       "post": {
         "operationId": "MemoryController_supersedeDecision",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "decisionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -2084,7 +4051,16 @@
     "/api/v1/oauth/requests/{requestId}": {
       "get": {
         "operationId": "OAuthSettingsController_request",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "requestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -2098,7 +4074,16 @@
     "/api/v1/oauth/requests/{requestId}/decision": {
       "post": {
         "operationId": "OAuthSettingsController_decide",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "requestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -2126,7 +4111,16 @@
     "/api/v1/oauth/grants/{grantId}": {
       "delete": {
         "operationId": "OAuthSettingsController_revokeGrant",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "grantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -2140,7 +4134,16 @@
     "/api/v1/workspaces/{workspaceId}/retrieval/search": {
       "post": {
         "operationId": "RetrievalController_search",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -2154,7 +4157,16 @@
     "/api/v1/workspaces/{workspaceId}/retrieval/refresh": {
       "post": {
         "operationId": "RetrievalController_refresh",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -2168,7 +4180,16 @@
     "/api/v1/workspaces/{workspaceId}/retrieval/documents": {
       "get": {
         "operationId": "RetrievalController_listDocuments",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -2182,7 +4203,24 @@
     "/api/v1/workspaces/{workspaceId}/retrieval/documents/{documentId}/embedding": {
       "put": {
         "operationId": "RetrievalController_putEmbedding",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "documentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -2196,7 +4234,24 @@
     "/api/v1/workspaces/{workspaceId}/retrieval/traces/{traceId}": {
       "get": {
         "operationId": "RetrievalController_getTrace",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "traceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
