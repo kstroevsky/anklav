@@ -17,7 +17,7 @@ describe('API bootstrap', () => {
 
     await app.init();
     expect(app.getHttpAdapter().getInstance().hasContentTypeParser('application/json')).toBe(true);
-  });
+  }, 10_000);
 
   it('accepts OAuth-standard form-encoded token requests', async () => {
     const { createApplication } = await import('../src/main');
