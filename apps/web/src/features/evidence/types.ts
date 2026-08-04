@@ -1,0 +1,2 @@
+export type EvidenceArtifact = { id: string; projectId: string | null; taskId: string | null; runId: string | null; type: string; mimeType: string; title: string; producer: string; preview: string; redactionStatus: string; retentionPolicy: string; createdAt: string; byteSize?: number; contentHash?: string; verifiedAt?: string; producingRunEventIds?: string[] };
+export type EvidenceRow = { artifact: EvidenceArtifact; blob: { hash: string; byteSize: number; verifiedAt: string } };

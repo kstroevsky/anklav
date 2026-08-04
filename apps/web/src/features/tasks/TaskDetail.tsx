@@ -15,6 +15,7 @@ import { Checklist } from './Checklist';
 import { TaskProperties } from './TaskProperties';
 import { TaskRuns } from './TaskRuns';
 import { TaskGitHub } from '../github/TaskGitHub';
+import { EvidenceBrowser } from '../evidence/EvidenceBrowser';
 import { relativeTime } from '../../utils/formatting';
 
 export function TaskDetail({ workspace, taskId, states }: { workspace: Workspace; taskId: string; states: WorkflowState[] }) {
@@ -97,6 +98,10 @@ export function TaskDetail({ workspace, taskId, states }: { workspace: Workspace
       </section>
       <TaskProperties workspace={workspace} task={task} save={(body) => update.mutate(body)} />
       <TaskRuns workspace={workspace} taskId={task.id} />
+      <section>
+        <div className="section-header"><div><h3>Exact evidence</h3><p className="muted">Immutable artifacts attached to this task and its runs.</p></div></div>
+        <EvidenceBrowser workspace={workspace} taskId={task.id} />
+      </section>
       <Checklist workspace={workspace} task={task} />
       <EditableMarkdown title="Verification performed" value={task.verificationPerformed} empty="Record the verification you performed." onSave={(verificationPerformed) => update.mutate({ verificationPerformed })} />
       <EditableMarkdown title="Completion evidence" value={task.completionEvidence} empty="Record completion evidence." onSave={(completionEvidence) => update.mutate({ completionEvidence })} />
