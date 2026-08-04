@@ -8,6 +8,7 @@ import { Page } from '../../components/templates/Page';
 import { ConnectedClients } from './ConnectedClients';
 import { TrashSection } from './TrashSection';
 import { RepositorySettings } from './RepositorySettings';
+import { PortfolioMigration } from './PortfolioMigration';
 import type { Session } from '../../app/types';
 
 export function SettingsPage({ workspace, session }: { workspace: Workspace; session: Session }) {
@@ -28,6 +29,7 @@ export function SettingsPage({ workspace, session }: { workspace: Workspace; ses
     queryFn: () => api(`/workspaces/${workspace.id}/available-users`),
     enabled: workspace.role === 'owner' || workspace.role === 'admin',
   });
+  const accounts = useQuery<any[]>({ queryKey: ['accounts'], queryFn: () => api('/accounts'), enabled: session.user.instanceRole === 'instance_admin' });
   const trash = useQuery<any>({
     queryKey: ['trash', workspace.id],
     queryFn: () => api(`/workspaces/${workspace.id}/trash`),
@@ -95,6 +97,7 @@ export function SettingsPage({ workspace, session }: { workspace: Workspace; ses
     mutationFn: (body: any) => api('/accounts', mutation('POST', body)),
     onSuccess: () => client.invalidateQueries({ queryKey: ['accounts'] }),
   });
+  const resetPassword = useMutation({ mutationFn: ({ userId, password }: { userId: string; password: string }) => api(`/accounts/${userId}/password`, mutation('PATCH', { password })) });
   const restore = useMutation({
     mutationFn: ({ kind, item }: any) => api(`/workspaces/${workspace.id}/${kind}/${item.id}/restore`, mutation('POST', undefined, item.version)),
     onSuccess: refreshSettings,
@@ -366,9 +369,12 @@ export function SettingsPage({ workspace, session }: { workspace: Workspace; ses
         <RepositorySettings workspace={workspace} />
         <TrashSection workspace={workspace} trash={trash.data} restore={restore} />
         <ConnectedClients />
+        {canAdmin && <PortfolioMigration workspace={workspace} />}
         {session.user.instanceRole === 'instance_admin' && (
-          <section className="settings-card">
+          <section className="settings-card wide">
             <h2>Instance accounts</h2>
+            <p className="muted">Create instance accounts and issue administrator password resets.</p>
+            <div className="account-list">{accounts.data?.map((account) => <form className="account-row" key={account.id} onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); const password = String(form.get('password') ?? ''); if (window.confirm(`Reset the password for ${account.email}?`)) { resetPassword.mutate({ userId: account.id, password }); event.currentTarget.reset(); } }}><span><strong>{account.displayName}</strong><small>{account.email} · {account.instanceRole}</small></span><input name="password" type="password" minLength={12} placeholder="New password" required /><button className="button">Reset password</button></form>)}</div>
             <form
               className="property-form"
               onSubmit={(event) => {
