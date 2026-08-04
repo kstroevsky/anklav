@@ -128,6 +128,7 @@ describe('cross-device handoff workflow', () => {
       { timestamp: '2026-08-01T10:00:00.000Z', type: 'session_meta', payload: { session_id: 'complete-session', cwd: repository, cli_version: '1.0.0', model_provider: 'openai' } },
       { timestamp: '2026-08-01T10:00:01.000Z', type: 'event_msg', payload: { type: 'task_started', turn_id: 'turn-1' } },
       { timestamp: '2026-08-01T10:00:02.000Z', type: 'response_item', payload: { type: 'message', id: 'message-1', role: 'assistant', content: [{ text: 'Use token=history-secret-value for the fixture.' }] } },
+      ...Array.from({ length: 20 }, (_, index) => ({ timestamp: `2026-08-01T10:00:${String(index + 3).padStart(2, '0')}.000Z`, type: 'response_item', payload: { type: 'message', id: `large-${index}`, role: 'assistant', content: [{ text: `Large normalized result ${index}: ${'x'.repeat(19_000)}` }] } })),
       { timestamp: '2026-08-01T10:00:03.000Z', type: 'event_msg', payload: { type: 'task_complete', turn_id: 'turn-1' } },
     ].map((entry) => JSON.stringify(entry)).join('\n'));
     await writeFile(join(sessions, 'incomplete.jsonl'), JSON.stringify({ timestamp: '2026-08-02T10:00:00.000Z', type: 'session_meta', payload: { session_id: 'incomplete-session', cwd: repository } }));
@@ -151,6 +152,9 @@ describe('cross-device handoff workflow', () => {
     const itemBatch = client.calls.find((call) => call.name === 'ingest_native_session' && Array.isArray(call.arguments.items) && call.arguments.items.length > 0);
     expect(JSON.stringify(itemBatch?.arguments.items)).toContain('[REDACTED]');
     expect(JSON.stringify(itemBatch?.arguments.items)).not.toContain('history-secret-value');
+    const ingestions = client.calls.filter((call) => call.name === 'ingest_native_session');
+    expect(ingestions.length).toBeGreaterThan(2);
+    expect(ingestions.every((call) => Buffer.byteLength(JSON.stringify(call.arguments)) <= 700 * 1024)).toBe(true);
     expect(client.calls.filter((call) => call.name === 'finish_run' && call.arguments.status === 'completed')).toHaveLength(1);
     expect(client.calls.some((call) => call.name === 'release_task_lease')).toBe(false);
   });

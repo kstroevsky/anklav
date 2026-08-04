@@ -8,6 +8,8 @@ import { applyPatch, commitsSince, gitSlice, inspectGit, isAncestor, sha256, typ
 import { machineIdentity } from '../platform/machine.js';
 
 type RecordValue = Record<string, any>;
+const MAX_NATIVE_INGESTION_PAYLOAD_BYTES = 700 * 1024;
+const MAX_NATIVE_ITEM_BATCH_BYTES = 256 * 1024;
 
 export class HandoffWorkflow {
   constructor(
@@ -264,16 +266,18 @@ export class HandoffWorkflow {
     let cursor = initialCursor;
     let uploaded = 0;
     while (cursor < parsed.items.length) {
-      const items = parsed.items.slice(cursor, cursor + 500);
+      const items = boundedItemBatch(parsed.items, cursor);
       const next = cursor + items.length;
       const revisionHash = sha256(items.map((item) => item.contentHash).join(':'));
-      await this.client.call('ingest_native_session', {
+      const ingestion = {
         workspaceId: state.workspaceId, nativeSessionId: sessionRecordId,
         idempotencyKey: `codex:${parsed.nativeSessionId}:${cursor}:${next}:${revisionHash}`, sourceRevision: `${cursor}-${next}-${revisionHash}`,
         parserVersion: parsed.parserVersion, fromCursor: String(cursor), toCursor: String(next), complete: false,
         manifest: { source: 'codex_rollout_jsonl', fileName: basename(parsed.path), normalizedItemCount: parsed.items.length }, pathMappings: { [parsed.cwd]: repositoryRoot },
         parseErrors: parsed.parseErrors, turns: parsed.turns, items,
-      });
+      };
+      assertIngestionSize(ingestion);
+      await this.client.call('ingest_native_session', ingestion);
       cursor = next;
       uploaded += items.length;
       await progress?.(cursor);
@@ -354,6 +358,25 @@ export class HandoffWorkflow {
     }
     return Buffer.concat(chunks);
   }
+}
+
+function boundedItemBatch(items: ParsedCodexSession['items'], cursor: number) {
+  const batch = [];
+  let bytes = 2;
+  for (let index = cursor; index < items.length && batch.length < 100; index += 1) {
+    const item = items[index]!;
+    const itemBytes = Buffer.byteLength(JSON.stringify(item));
+    if (itemBytes > MAX_NATIVE_ITEM_BATCH_BYTES) throw new Error(`Normalized Codex item ${item.nativeItemId} exceeds the safe ingestion payload budget.`);
+    if (batch.length && bytes + itemBytes + 1 > MAX_NATIVE_ITEM_BATCH_BYTES) break;
+    batch.push(item);
+    bytes += itemBytes + 1;
+  }
+  if (!batch.length) throw new Error('Unable to create a bounded Codex ingestion batch.');
+  return batch;
+}
+
+function assertIngestionSize(input: Record<string, unknown>): void {
+  if (Buffer.byteLength(JSON.stringify(input)) > MAX_NATIVE_INGESTION_PAYLOAD_BYTES) throw new Error('Normalized Codex ingestion exceeds the safe HTTP payload budget even after item batching.');
 }
 
 function nativeSessionInput(parsed: ParsedCodexSession, repositoryRoot: string) {
