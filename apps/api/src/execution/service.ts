@@ -48,10 +48,11 @@ export class ExecutionService {
 
   async listMachines(workspaceId: string, user: AuthUser) {
     await this.workspaces.requireMembership(workspaceId, user);
-    const [runs, leases, aliases] = await Promise.all([
+    const [runs, leases, aliases, sessionSyncs] = await Promise.all([
       this.database.db.select({ run: agentRuns, task: tasks }).from(agentRuns).innerJoin(tasks, eq(agentRuns.taskId, tasks.id)).where(eq(agentRuns.workspaceId, workspaceId)).orderBy(desc(agentRuns.startedAt)),
       this.database.db.select({ lease: taskLeases, task: tasks }).from(taskLeases).innerJoin(tasks, eq(taskLeases.taskId, tasks.id)).where(and(eq(taskLeases.workspaceId, workspaceId), isNull(taskLeases.releasedAt), gt(taskLeases.expiresAt, new Date()))),
       this.database.db.select({ alias: repositoryLocalAliases, repository: repositories }).from(repositoryLocalAliases).innerJoin(repositories, eq(repositoryLocalAliases.repositoryId, repositories.id)).where(eq(repositories.workspaceId, workspaceId)).orderBy(asc(repositoryLocalAliases.machineIdentity)),
+      this.database.db.select({ machineIdentity: agentRuns.machineIdentity, lastIngestedAt: nativeSessions.lastIngestedAt }).from(nativeSessions).innerJoin(agentRuns, eq(nativeSessions.runId, agentRuns.id)).where(eq(nativeSessions.workspaceId, workspaceId)).orderBy(desc(nativeSessions.lastIngestedAt)),
     ]);
     const identities = new Set([...runs.map((entry) => entry.run.machineIdentity), ...leases.map((entry) => entry.lease.machineIdentity), ...aliases.map((entry) => entry.alias.machineIdentity)]);
     return [...identities].map((machineIdentity) => {
@@ -61,7 +62,8 @@ export class ExecutionService {
       const machineAliases = aliases.filter((entry) => entry.alias.machineIdentity === machineIdentity);
       const machineLeases = leases.filter((entry) => entry.lease.machineIdentity === machineIdentity);
       const lastSeenAt = machineLeases[0]?.lease.lastRenewedAt ?? last?.run.endedAt ?? last?.run.startedAt ?? machineAliases[0]?.alias.updatedAt ?? null;
-      return { machineIdentity, lastSeenAt, activeRun: active?.run ?? null, activeTask: active?.task ?? null, leases: machineLeases.map((entry) => ({ ...entry.lease, task: entry.task })), aliases: machineAliases.map((entry) => ({ ...entry.alias, repository: entry.repository })), lastSyncAt: null };
+      const lastSyncAt = sessionSyncs.find((entry) => entry.machineIdentity === machineIdentity && entry.lastIngestedAt)?.lastIngestedAt ?? null;
+      return { machineIdentity, lastSeenAt, activeRun: active?.run ?? null, activeTask: active?.task ?? null, leases: machineLeases.map((entry) => ({ ...entry.lease, task: entry.task })), aliases: machineAliases.map((entry) => ({ ...entry.alias, repository: entry.repository })), lastSyncAt };
     }).sort((left, right) => Date.parse(String(right.lastSeenAt ?? 0)) - Date.parse(String(left.lastSeenAt ?? 0)));
   }
 
