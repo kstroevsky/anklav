@@ -8,8 +8,12 @@ import { GitSlices } from './GitSlices';
 import { RunEvents } from './RunEvents';
 import { SessionItemRow } from './SessionItemRow';
 import { StatusText } from './StatusText';
+import { HandoffCard } from './HandoffCard';
+import { RunAdministration } from './RunAdministration';
+import { PaginatedRunEvents } from './PaginatedRunEvents';
+import { useAfterList } from '../../hooks/useAfterList';
 import { compactJson, expiresIn, runLineage, shortId, tokenTotal } from './taskRunsUtils';
-import type { Ingestion, Lease, Run, RunDetail, SessionItem } from './taskRunsTypes';
+import type { Ingestion, Lease, Run, RunDetail, SessionItem, TaskOperations } from './taskRunsTypes';
 
 export function TaskRuns({ workspace, taskId }: { workspace: Workspace; taskId: string }) {
   const client = useQueryClient();
@@ -30,6 +34,7 @@ export function TaskRuns({ workspace, taskId }: { workspace: Workspace; taskId: 
     queryFn: () => api(`/workspaces/${workspace.id}/tasks/${taskId}/leases`),
     refetchInterval: 15_000,
   });
+  const operations = useQuery<TaskOperations>({ queryKey: ['task-operations', workspace.id, taskId], queryFn: () => api(`/workspaces/${workspace.id}/tasks/${taskId}/operations`), refetchInterval: 15_000 });
   const selectedRunId = selectedRun ?? runs.data?.[0]?.id ?? null;
   const detail = useQuery<RunDetail>({
     queryKey: ['run-detail', workspace.id, selectedRunId],
@@ -40,11 +45,7 @@ export function TaskRuns({ workspace, taskId }: { workspace: Workspace; taskId: 
   const selectedSessionId = selectedSession && detail.data?.nativeSessions.some((session) => session.id === selectedSession)
     ? selectedSession
     : detail.data?.nativeSessions[0]?.id ?? null;
-  const sessionItems = useQuery<{ items: SessionItem[]; nextAfter: number | null }>({
-    queryKey: ['native-session-items', workspace.id, selectedSessionId],
-    queryFn: () => api(`/workspaces/${workspace.id}/native-sessions/${selectedSessionId}/items`),
-    enabled: Boolean(selectedSessionId),
-  });
+  const sessionItems = useAfterList<SessionItem>(['native-session-items', workspace.id, selectedSessionId], `/workspaces/${workspace.id}/native-sessions/${selectedSessionId}/items`, Boolean(selectedSessionId));
   const ingestions = useQuery<Ingestion[]>({
     queryKey: ['native-session-ingestions', workspace.id, selectedSessionId],
     queryFn: () => api(`/workspaces/${workspace.id}/native-sessions/${selectedSessionId}/ingestions`),
@@ -65,8 +66,8 @@ export function TaskRuns({ workspace, taskId }: { workspace: Workspace; taskId: 
   const lineage = useMemo(() => runLineage(filteredRuns), [filteredRuns]);
   const filteredItems = useMemo(() => {
     const query = sessionFilter.trim().toLowerCase();
-    return (sessionItems.data?.items ?? []).filter((item) => (showWithheld || !item.contentWithheld) && (!query || [item.type, item.role, item.summary, compactJson(item.redactedContent)].some((value) => value?.toLowerCase().includes(query))));
-  }, [sessionItems.data, sessionFilter, showWithheld]);
+    return sessionItems.items.filter((item) => (showWithheld || !item.contentWithheld) && (!query || [item.type, item.role, item.summary, compactJson(item.redactedContent)].some((value) => value?.toLowerCase().includes(query))));
+  }, [sessionItems.items, sessionFilter, showWithheld]);
 
   if (runs.isLoading || leases.isLoading) return <section className="task-operations"><p className="muted">Loading task operations…</p></section>;
   if (!runs.data?.length) return (
@@ -78,9 +79,9 @@ export function TaskRuns({ workspace, taskId }: { workspace: Workspace; taskId: 
   const activeRun = runs.data.find((run) => run.status === 'running') ?? null;
   const activeLease = leases.data?.find((lease) => lease.runId === activeRun?.id) ?? leases.data?.[0] ?? null;
   const newestSession = runs.data.flatMap((run) => run.nativeSessions).filter((session) => session.lastIngestedAt).sort((a, b) => Date.parse(b.lastIngestedAt!) - Date.parse(a.lastIngestedAt!))[0];
-  const latestSlice = detail.data?.gitSlices.at(-1);
-  const latestCheckpoint = detail.data?.checkpoints.at(-1);
-  const ready = Boolean(activeRun && activeLease && activeRun.nativeSessions.some((session) => session.resumability === 'resumable') && latestSlice?.dirtyState !== 'dirty_missing');
+  const latestSlice = operations.data?.gitSlice;
+  const latestCheckpoint = operations.data?.checkpoint;
+  const ready = operations.data?.ready ?? false;
 
   return (
     <section className="task-operations">
@@ -89,10 +90,13 @@ export function TaskRuns({ workspace, taskId }: { workspace: Workspace; taskId: 
         <span className="ops-live"><i />Updates every 15 seconds</span>
       </div>
 
+      {operations.data ? <HandoffCard operations={operations.data} /> : null}
+      <RunAdministration workspace={workspace} taskId={taskId} run={detail.data} />
+
       <div className="ops-overview">
         <div className={`readiness ${ready ? 'ready' : 'attention'}`}>
           <strong>{ready ? 'Ready to continue' : activeRun ? 'Reconciliation needed' : 'No active run'}</strong>
-          <small>{ready ? 'Session, lease, and Git state are aligned.' : 'Review the active run, lease, and latest Git slice.'}</small>
+          <small>{ready ? 'Checkpoint, Git state, patch evidence, and writer coordination are aligned.' : operations.data?.blockers[0] ?? 'Review the latest handoff state.'}</small>
         </div>
         <div><small>Active machine</small><strong>{activeLease?.machineIdentity ?? activeRun?.machineIdentity ?? '—'}</strong><span>{activeRun ? `${activeRun.provider} · ${activeRun.client}` : 'No active execution'}</span></div>
         <div><small>Lease</small><strong>{activeLease ? `${activeLease.writeAccess ? 'Write' : 'Read'}${activeLease.exclusive ? ' · exclusive' : ''}` : 'None'}</strong><span>{activeLease ? `Expires ${expiresIn(activeLease.expiresAt)}` : 'No machine owns this task'}</span></div>
@@ -151,11 +155,11 @@ export function TaskRuns({ workspace, taskId }: { workspace: Workspace; taskId: 
               </div>
               {detail.data.outcomeSummary && <p className="run-outcome">{detail.data.outcomeSummary}</p>}
               <div className="ops-tabs" role="tablist">
-                <button className={tab === 'events' ? 'active' : ''} onClick={() => setTab('events')}>Events <span>{detail.data.events.length}</span></button>
+                <button className={tab === 'events' ? 'active' : ''} onClick={() => setTab('events')}>Events</button>
                 <button className={tab === 'git' ? 'active' : ''} onClick={() => setTab('git')}>Git slices <span>{detail.data.gitSlices.length}</span></button>
                 <button className={tab === 'checkpoints' ? 'active' : ''} onClick={() => setTab('checkpoints')}>Checkpoints <span>{detail.data.checkpoints.length}</span></button>
               </div>
-              {tab === 'events' && <RunEvents events={detail.data.events} />}
+              {tab === 'events' && <PaginatedRunEvents workspace={workspace} runId={detail.data.id} />}
               {tab === 'git' && <GitSlices slices={detail.data.gitSlices} />}
               {tab === 'checkpoints' && <Checkpoints checkpoints={detail.data.checkpoints} />}
             </>
@@ -175,6 +179,7 @@ export function TaskRuns({ workspace, taskId }: { workspace: Workspace; taskId: 
           </div>
           <div className="transcript">
             {!selectedSessionId ? <p className="muted">This run has no provider-native session.</p> : sessionItems.isLoading ? <p className="muted">Loading normalized session items…</p> : filteredItems.length ? filteredItems.map((item) => <SessionItemRow key={item.id} item={item} />) : <p className="muted">No session items match the current filters.</p>}
+            {selectedSessionId ? <div className="session-pagination"><span>{sessionItems.items.length} of {detail.data.nativeSessions.find((entry) => entry.id === selectedSessionId)?.recordCount ?? sessionItems.items.length} items loaded</span>{sessionItems.hasNextPage ? <button className="button" disabled={sessionItems.isFetchingNextPage} onClick={() => void sessionItems.fetchNextPage()}>{sessionItems.isFetchingNextPage ? 'Loading…' : 'Load more'}</button> : null}</div> : null}
           </div>
         </div>
         <aside className="ingestion-panel">
