@@ -1,12 +1,13 @@
 import { createHash } from 'node:crypto';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { and, asc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { AuthUser } from '../auth';
 import { DatabaseService } from '../db/database.service';
-import { agentRuns, embeddingProfiles, evidenceArtifacts, knowledgeArtifactRevisions, knowledgeArtifacts, memoryClaims, nativeSessionItems, nativeSessions, projectDecisions, projects, retrievalDocuments, retrievalEmbeddings, retrievalTraces, runCheckpoints, taskRelations, tasks } from '../db/schema';
+import { agentRuns, embeddingProfiles, evidenceArtifacts, knowledgeArtifactRevisions, knowledgeArtifacts, memoryClaims, nativeSessionItems, nativeSessions, projectDecisions, projects, retrievalDocuments, retrievalEmbeddingJobs, retrievalEmbeddings, retrievalTraces, runCheckpoints, taskRelations, tasks } from '../db/schema';
 import { WorkspaceService } from '../workspace.service';
 import { buildContextualPrefix, buildEmbeddingText, semanticUnits } from './document';
-import type { ListRetrievalDocumentsInput, RefreshRetrievalInput, RetrievalIntent, RetrievalSearchInput } from './inputs';
+import { EMBEDDING_PROVIDER, type EmbeddingProvider } from './embedding-provider';
+import type { ListEmbeddingJobsInput, ListRetrievalDocumentsInput, RefreshRetrievalInput, RetrievalIntent, RetrievalSearchInput } from './inputs';
 import { EMBEDDING_STORAGE_LANE } from './profiles';
 import { classifyRetrievalIntent, hybridScore, retrievalWeights } from './ranking';
 
@@ -20,11 +21,17 @@ type CandidateRow = typeof retrievalDocuments.$inferSelect & { lexical_score: nu
 
 @Injectable()
 export class RetrievalService {
-  constructor(private readonly database: DatabaseService, private readonly workspaces: WorkspaceService) {}
+  constructor(@Inject(DatabaseService) private readonly database: DatabaseService, @Inject(WorkspaceService) private readonly workspaces: WorkspaceService, @Inject(EMBEDDING_PROVIDER) private readonly embeddingProvider: EmbeddingProvider) {}
 
   async listEmbeddingProfiles(workspaceId: string, user: AuthUser) {
     await this.workspaces.requireMembership(workspaceId, user);
     return this.database.db.select().from(embeddingProfiles).where(eq(embeddingProfiles.active, true)).orderBy(asc(embeddingProfiles.key));
+  }
+
+  async listEmbeddingJobs(workspaceId: string, user: AuthUser, input: ListEmbeddingJobsInput) {
+    await this.workspaces.requireMembership(workspaceId, user);
+    await this.requireProject(workspaceId, input.projectId);
+    return this.database.db.select().from(retrievalEmbeddingJobs).where(and(eq(retrievalEmbeddingJobs.workspaceId, workspaceId), eq(retrievalEmbeddingJobs.projectId, input.projectId), input.status ? eq(retrievalEmbeddingJobs.status, input.status) : undefined)).orderBy(asc(retrievalEmbeddingJobs.status), asc(retrievalEmbeddingJobs.runAfter)).limit(input.limit);
   }
 
   async refresh(workspaceId: string, user: AuthUser, input: RefreshRetrievalInput) {
@@ -69,9 +76,15 @@ export class RetrievalService {
 
     return this.database.db.transaction(async (tx) => {
       const storedIds: string[] = [];
+      const activeProfiles = await tx.select({ key: embeddingProfiles.key }).from(embeddingProfiles).where(eq(embeddingProfiles.active, true));
+      let queuedEmbeddingJobs = 0;
       for (const document of documents) {
         const [stored] = await tx.insert(retrievalDocuments).values(document).onConflictDoUpdate({ target: [retrievalDocuments.workspaceId, retrievalDocuments.sourceType, retrievalDocuments.sourceId, retrievalDocuments.sourcePart], set: { projectId: document.projectId, taskId: document.taskId, runId: document.runId, title: document.title, content: document.content, contextualPrefix: document.contextualPrefix, searchText: document.searchText, embeddingText: document.embeddingText, contentHash: document.contentHash, authorityBasisPoints: document.authorityBasisPoints, sensitivity: document.sensitivity, status: document.status, validFromAt: document.validFromAt, validUntilAt: document.validUntilAt, sourceRecordedAt: document.sourceRecordedAt, metadata: document.metadata, indexedAt: new Date(), updatedAt: new Date() } }).returning({ id: retrievalDocuments.id });
         storedIds.push(stored!.id);
+        for (const profile of activeProfiles) {
+          const inserted = await tx.insert(retrievalEmbeddingJobs).values({ workspaceId, projectId: project.id, documentId: stored!.id, profileKey: profile.key, contentHash: document.contentHash }).onConflictDoNothing().returning({ id: retrievalEmbeddingJobs.id });
+          queuedEmbeddingJobs += inserted.length;
+        }
       }
       const existing = await tx.select({ id: retrievalDocuments.id }).from(retrievalDocuments).where(and(eq(retrievalDocuments.workspaceId, workspaceId), eq(retrievalDocuments.projectId, project.id)));
       const staleIds = existing.map((entry) => entry.id).filter((id) => !storedIds.includes(id));
@@ -79,7 +92,7 @@ export class RetrievalService {
         await tx.delete(retrievalEmbeddings).where(inArray(retrievalEmbeddings.documentId, staleIds));
         await tx.delete(retrievalDocuments).where(inArray(retrievalDocuments.id, staleIds));
       }
-      return { projectId: project.id, indexedDocuments: documents.length, removedDocuments: staleIds.length, sourceCounts: countBy(documents, (document) => document.sourceType) };
+      return { projectId: project.id, indexedDocuments: documents.length, queuedEmbeddingJobs, removedDocuments: staleIds.length, sourceCounts: countBy(documents, (document) => document.sourceType) };
     });
   }
 
@@ -99,8 +112,17 @@ export class RetrievalService {
     const relatedTaskIds = input.taskId && input.expandRelatedTasks ? await this.relatedTasks(workspaceId, input.projectId, input.taskId) : [];
     const allowedTaskIds = input.taskId ? [input.taskId, ...relatedTaskIds] : [];
     const profile = input.embeddingProfileKey ? await this.requireEmbeddingProfile(input.embeddingProfileKey) : null;
-    if (profile && input.queryEmbedding!.length !== profile.dimensions) throw new BadRequestException(`Embedding profile ${profile.key} requires ${profile.dimensions} dimensions; received ${input.queryEmbedding!.length}.`);
-    const vectorLiteral = input.queryEmbedding ? `[${input.queryEmbedding.join(',')}]` : null;
+    let queryEmbedding: number[] | null = null;
+    if (profile) {
+      if (!this.embeddingProvider.configured()) throw new ServiceUnavailableException('Semantic retrieval is unavailable because the embedding provider is not configured.');
+      try {
+        const [generated] = await this.embeddingProvider.embed(profile, 'query', [input.query]);
+        if (!generated) throw new Error('Embedding provider returned no query vector.');
+        queryEmbedding = generated;
+      }
+      catch (error) { throw new ServiceUnavailableException(error instanceof Error ? error.message : 'Embedding provider failed.'); }
+    }
+    const vectorLiteral = queryEmbedding ? `[${queryEmbedding.join(',')}]` : null;
     const searchVector = sql`to_tsvector('simple', d.search_text)`;
     const textQuery = sql`websearch_to_tsquery('simple', ${input.query})`;
     const lexical = sql`ts_rank_cd(${searchVector}, ${textQuery})`;
@@ -157,7 +179,7 @@ export class RetrievalService {
       const score = hybridScore({ intent, lexical: lexicalNormalized, semantic: semanticScore, authority: row.authorityBasisPoints / 10_000, affinity, recency });
       return { document: stripSearchText(normalized), score, scores: { lexical: lexicalNormalized, semantic: semanticScore, authority: row.authorityBasisPoints / 10_000, affinity, recency } };
     }).sort((left, right) => right.score - left.score || right.document.sourceRecordedAt.getTime() - left.document.sourceRecordedAt.getTime()).slice(0, input.limit);
-    const [trace] = await this.database.db.insert(retrievalTraces).values({ workspaceId, projectId: input.projectId, taskId: input.taskId ?? null, queryHash: sha256(input.query), intent, embeddingProfileKey: profile?.key ?? null, filters: { projectId: input.projectId, taskId: input.taskId ?? null, sourceTypes: input.sourceTypes, includeHistorical: input.includeHistorical, expandedRelatedTaskIds: relatedTaskIds }, candidateCounts: { hybrid: candidates.rows.length, lexical: (candidates.rows as any[]).filter((entry) => Number(entry.lexical_score) > 0).length, semantic: (candidates.rows as any[]).filter((entry) => Number(entry.semantic_score) > 0).length }, scoring: { weights: retrievalWeights(intent), lexicalCandidateLimit: 250, semanticCandidateLimit: 250, embeddingProfile: profile ? { key: profile.key, model: profile.model, modelRevision: profile.modelRevision, dimensions: profile.dimensions, distanceMetric: profile.distanceMetric } : null }, resultRefs: ranked.map((entry) => ({ documentId: entry.document.id, sourceType: entry.document.sourceType, sourceId: entry.document.sourceId, sourcePart: entry.document.sourcePart, score: entry.score })), semanticUsed: Boolean(profile && input.queryEmbedding), requestedByUserId: user.id }).returning();
+    const [trace] = await this.database.db.insert(retrievalTraces).values({ workspaceId, projectId: input.projectId, taskId: input.taskId ?? null, queryHash: sha256(input.query), intent, embeddingProfileKey: profile?.key ?? null, filters: { projectId: input.projectId, taskId: input.taskId ?? null, sourceTypes: input.sourceTypes, includeHistorical: input.includeHistorical, expandedRelatedTaskIds: relatedTaskIds }, candidateCounts: { hybrid: candidates.rows.length, lexical: (candidates.rows as any[]).filter((entry) => Number(entry.lexical_score) > 0).length, semantic: (candidates.rows as any[]).filter((entry) => Number(entry.semantic_score) > 0).length }, scoring: { weights: retrievalWeights(intent), lexicalCandidateLimit: 250, semanticCandidateLimit: 250, embeddingProfile: profile ? { key: profile.key, model: profile.model, modelRevision: profile.modelRevision, dimensions: profile.dimensions, distanceMetric: profile.distanceMetric } : null }, resultRefs: ranked.map((entry) => ({ documentId: entry.document.id, sourceType: entry.document.sourceType, sourceId: entry.document.sourceId, sourcePart: entry.document.sourcePart, score: entry.score })), semanticUsed: Boolean(profile && queryEmbedding), requestedByUserId: user.id }).returning();
     return { intent, results: ranked, trace: { id: trace!.id, queryHash: trace!.queryHash, filters: trace!.filters, candidateCounts: trace!.candidateCounts, scoring: trace!.scoring, semanticUsed: trace!.semanticUsed, createdAt: trace!.createdAt } };
   }
 

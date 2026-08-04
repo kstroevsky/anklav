@@ -14,7 +14,7 @@ import { EvidenceService } from '../evidence/service';
 import { evidenceArtifactInput } from '../evidence/inputs';
 import { MemoryService } from '../memory/service';
 import { proposeClaimInput, proposeDecisionInput } from '../memory/inputs';
-import { listRetrievalDocumentsInput, refreshRetrievalInput, retrievalSearchInput } from '../retrieval/inputs';
+import { listEmbeddingJobsInput, listRetrievalDocumentsInput, refreshRetrievalInput, retrievalSearchInput } from '../retrieval/inputs';
 import { RetrievalService } from '../retrieval/service';
 
 @Injectable()
@@ -266,6 +266,11 @@ export class McpService {
     read('list_embedding_profiles', 'List active, revision-pinned embedding profiles and their exact dimensional and prefix contracts.', workspaceId, async (input) => {
       check(input.workspaceId, OAUTH_READ_SCOPE);
       return this.retrieval.listEmbeddingProfiles(input.workspaceId, user);
+    });
+    read('list_embedding_jobs', 'Inspect durable embedding job status, attempts, leases, and sanitized failures for one project.', workspaceId.merge(listEmbeddingJobsInput), async (input) => {
+      check(input.workspaceId, OAUTH_READ_SCOPE);
+      const { workspaceId: value, ...values } = input;
+      return this.retrieval.listEmbeddingJobs(value, user, values);
     });
     read('list_retrieval_documents', 'List derived retrieval documents or documents missing an embedding for a selected trusted profile.', workspaceId.merge(listRetrievalDocumentsInput), async (input) => {
       check(input.workspaceId, OAUTH_READ_SCOPE);

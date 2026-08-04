@@ -2036,6 +2036,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/workspaces/{workspaceId}/retrieval/embedding-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["RetrievalController_listEmbeddingJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/workspaces/{workspaceId}/retrieval/search": {
         parameters: {
             query?: never;
@@ -5139,6 +5155,25 @@ export interface operations {
         };
     };
     RetrievalController_listEmbeddingProfiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RetrievalController_listEmbeddingJobs: {
         parameters: {
             query?: never;
             header?: never;

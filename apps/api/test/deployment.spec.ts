@@ -20,6 +20,10 @@ describe('deployment proxy contract', () => {
     expect(compose).toContain('PGVECTOR_REVISION: 8ee86c96f0fd72390f890aa8a336fda6d3ab4c6c');
     expect(compose).toContain('PG_MAJOR: 18');
     expect(compose).toContain('anklav-postgres:/var/lib/postgresql');
+    expect(compose).toContain('retrieval-worker:');
+    expect(compose).toContain('profiles: ["embedding"]');
+    expect(compose).toContain('dist/src/retrieval/worker.js');
+    expect(compose).toContain('EMBEDDING_MODEL_REVISION: ${EMBEDDING_MODEL_REVISION:-}');
     expect(dockerfile).toContain('FROM postgres:18.4-bookworm');
     expect(dockerfile).toContain('https://github.com/pgvector/pgvector.git#${PGVECTOR_REVISION}');
     expect(migration).toContain("ALTER EXTENSION vector UPDATE TO '0.8.6'");

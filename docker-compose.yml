@@ -44,6 +44,9 @@ services:
       GITHUB_INTEGRATION_ENABLED: ${GITHUB_INTEGRATION_ENABLED:-false}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
       INTEGRATION_ENCRYPTION_KEY: ${INTEGRATION_ENCRYPTION_KEY:-}
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+      EMBEDDING_MODEL_REVISION: ${EMBEDDING_MODEL_REVISION:-}
       PORT: 3000
       COOKIE_SECURE: "false"
       EVIDENCE_STORAGE_PATH: /var/lib/anklav/evidence
@@ -54,6 +57,27 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+
+  retrieval-worker:
+    profiles: ["embedding"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    command: ["node", "dist/src/retrieval/worker.js"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-anklav}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-anklav}
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+      EMBEDDING_MODEL_REVISION: ${EMBEDDING_MODEL_REVISION:-}
+      EMBEDDING_WORKER_BATCH_SIZE: ${EMBEDDING_WORKER_BATCH_SIZE:-16}
+      EMBEDDING_WORKER_POLL_MS: ${EMBEDDING_WORKER_POLL_MS:-2000}
+      EMBEDDING_WORKER_LEASE_SECONDS: ${EMBEDDING_WORKER_LEASE_SECONDS:-300}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
 
   web:
     build:

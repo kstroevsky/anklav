@@ -72,6 +72,32 @@ export const retrievalEmbeddings = pgTable('retrieval_embeddings', {
   index('retrieval_embeddings_cosine_index').using('hnsw', table.embedding.op('vector_cosine_ops')),
 ]);
 
+export const retrievalEmbeddingJobs = pgTable('retrieval_embedding_jobs', {
+  id: id(),
+  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+  projectId: uuid('project_id').notNull().references(() => projects.id),
+  documentId: uuid('document_id').notNull().references(() => retrievalDocuments.id, { onDelete: 'cascade' }),
+  profileKey: text('profile_key').notNull().references(() => embeddingProfiles.key),
+  contentHash: text('content_hash').notNull(),
+  status: text('status').notNull().default('queued'),
+  attempts: integer('attempts').notNull().default(0),
+  maxAttempts: integer('max_attempts').notNull().default(5),
+  runAfter: timestamp('run_after', { withTimezone: true }).notNull().defaultNow(),
+  lockedAt: timestamp('locked_at', { withTimezone: true }),
+  lockedBy: text('locked_by'),
+  lastError: text('last_error'),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (table) => [
+  uniqueIndex('retrieval_embedding_jobs_content_unique').on(table.documentId, table.profileKey, table.contentHash),
+  index('retrieval_embedding_jobs_claim_index').on(table.status, table.runAfter, table.createdAt),
+  index('retrieval_embedding_jobs_lease_index').on(table.status, table.lockedAt),
+  index('retrieval_embedding_jobs_project_index').on(table.projectId, table.status),
+  check('retrieval_embedding_jobs_status_check', sql`${table.status} IN ('queued', 'running', 'completed', 'dead', 'superseded')`),
+  check('retrieval_embedding_jobs_attempts_check', sql`${table.attempts} >= 0 AND ${table.maxAttempts} > 0`),
+]);
+
 export const retrievalTraces = pgTable('retrieval_traces', {
   id: id(),
   workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),

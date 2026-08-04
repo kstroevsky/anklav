@@ -1,7 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildContextualPrefix, buildEmbeddingText, semanticUnits } from '../src/retrieval/document';
+import { OpenAiCompatibleEmbeddingProvider } from '../src/retrieval/embedding-provider';
 import { retrievalSearchInput } from '../src/retrieval/inputs';
-import { DEFAULT_EMBEDDING_MODEL_REVISION } from '../src/retrieval/profiles';
+import { DEFAULT_DOCUMENT_PREFIX, DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_MODEL_REVISION, DEFAULT_QUERY_PREFIX } from '../src/retrieval/profiles';
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  delete process.env.EMBEDDING_BASE_URL;
+  delete process.env.EMBEDDING_MODEL_REVISION;
+});
 import { classifyRetrievalIntent, hybridScore } from '../src/retrieval/ranking';
 
 describe('hybrid retrieval contracts', () => {
@@ -11,13 +18,26 @@ describe('hybrid retrieval contracts', () => {
     expect(retrievalSearchInput.safeParse({ ...base, projectId: '0198babc-1234-7000-8000-000000000002' }).success).toBe(true);
   });
 
-  it('requires semantic searches to name a server-side profile without treating 768 as a universal input fact', () => {
+  it('selects a server-side profile and rejects caller-supplied vectors', () => {
     const base = { query: 'session guard', projectId: '0198babc-1234-7000-8000-000000000002' };
-    expect(retrievalSearchInput.safeParse({ ...base, embeddingProfileKey: 'nomic-v2-768' }).success).toBe(false);
-    expect(retrievalSearchInput.safeParse({ ...base, queryEmbedding: [0.01] }).success).toBe(false);
-    expect(retrievalSearchInput.safeParse({ ...base, embeddingProfileKey: 'future-profile', queryEmbedding: [0.01] }).success).toBe(true);
-    expect(retrievalSearchInput.safeParse({ ...base, embeddingProfileKey: 'future-profile', queryEmbedding: [Number.NaN] }).success).toBe(false);
+    expect(retrievalSearchInput.safeParse({ ...base, embeddingProfileKey: 'nomic-v2-768' }).success).toBe(true);
+    expect(retrievalSearchInput.safeParse({ ...base, embeddingProfileKey: 'nomic-v2-768', queryEmbedding: [0.01] }).success).toBe(false);
     expect(DEFAULT_EMBEDDING_MODEL_REVISION).toMatch(/^[a-f0-9]{40}$/);
+  });
+
+  it('applies profile prefixes and validates provider dimensions', async () => {
+    process.env.EMBEDDING_BASE_URL = 'http://embedding.test/v1';
+    process.env.EMBEDDING_MODEL_REVISION = DEFAULT_EMBEDDING_MODEL_REVISION;
+    const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body));
+      expect(body.input).toEqual([`${DEFAULT_QUERY_PREFIX}where is auth?`]);
+      return new Response(JSON.stringify({ data: [{ index: 0, embedding: Array.from({ length: 768 }, () => 0.01) }] }), { status: 200 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const provider = new OpenAiCompatibleEmbeddingProvider();
+    const result = await provider.embed({ key: 'nomic-v2-768', model: DEFAULT_EMBEDDING_MODEL, modelRevision: DEFAULT_EMBEDDING_MODEL_REVISION, dimensions: 768, queryPrefix: DEFAULT_QUERY_PREFIX, documentPrefix: DEFAULT_DOCUMENT_PREFIX }, 'query', ['where is auth?']);
+    expect(result[0]).toHaveLength(768);
+    expect(fetchMock).toHaveBeenCalledOnce();
   });
 
   it('builds bounded, contextualized, redacted semantic units', () => {

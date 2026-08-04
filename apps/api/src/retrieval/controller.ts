@@ -2,7 +2,7 @@ import { BadRequestException, Body, Controller, Get, HttpCode, Param, Post, Quer
 import type { AuthedRequest } from '../auth';
 import { SessionGuard } from '../auth';
 import { parseBody } from '../common/http';
-import { listRetrievalDocumentsInput, refreshRetrievalInput, retrievalSearchInput } from './inputs';
+import { listEmbeddingJobsInput, listRetrievalDocumentsInput, refreshRetrievalInput, retrievalSearchInput } from './inputs';
 import { RetrievalService } from './service';
 
 @UseGuards(SessionGuard)
@@ -12,6 +12,13 @@ export class RetrievalController {
 
   @Get('embedding-profiles')
   listEmbeddingProfiles(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest) { return this.retrieval.listEmbeddingProfiles(workspaceId, request.user); }
+
+  @Get('embedding-jobs')
+  listEmbeddingJobs(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Query() query: Record<string, string | undefined>) {
+    const limit = query.limit === undefined ? undefined : Number(query.limit);
+    if (limit !== undefined && !Number.isSafeInteger(limit)) throw new BadRequestException('limit must be an integer.');
+    return this.retrieval.listEmbeddingJobs(workspaceId, request.user, parseBody(listEmbeddingJobsInput, { projectId: query.projectId, status: query.status, limit }));
+  }
 
   @Post('search')
   @HttpCode(200)

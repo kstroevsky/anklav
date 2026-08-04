@@ -4154,6 +4154,29 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceId}/retrieval/embedding-jobs": {
+      "get": {
+        "operationId": "RetrievalController_listEmbeddingJobs",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Retrieval"
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceId}/retrieval/search": {
       "post": {
         "operationId": "RetrievalController_search",

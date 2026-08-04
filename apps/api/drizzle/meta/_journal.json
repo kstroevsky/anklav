@@ -134,6 +134,13 @@
       "when": 1785846888278,
       "tag": "0018_harden_retrieval_profiles",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1785847618400,
+      "tag": "0019_add_embedding_jobs",
+      "breakpoints": true
     }
   ]
 }
