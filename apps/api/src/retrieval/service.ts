@@ -77,23 +77,54 @@ export class RetrievalService {
 
     return this.database.db.transaction(async (tx) => {
       const storedIds: string[] = [];
-      const activeProfiles = await tx.select({ key: embeddingProfiles.key }).from(embeddingProfiles).where(eq(embeddingProfiles.active, true));
-      let queuedEmbeddingJobs = 0;
+      const existingDocuments = await tx.select({ id: retrievalDocuments.id, sourceType: retrievalDocuments.sourceType, sourceId: retrievalDocuments.sourceId, sourcePart: retrievalDocuments.sourcePart, contentHash: retrievalDocuments.contentHash }).from(retrievalDocuments).where(and(eq(retrievalDocuments.workspaceId, workspaceId), eq(retrievalDocuments.projectId, project.id)));
+      const existingBySource = new Map(existingDocuments.map((document) => [documentKey(document), document]));
+      const changedDocuments = documents.filter((document) => existingBySource.get(documentKey(document))?.contentHash !== document.contentHash);
       for (const document of documents) {
-        const [stored] = await tx.insert(retrievalDocuments).values(document).onConflictDoUpdate({ target: [retrievalDocuments.workspaceId, retrievalDocuments.sourceType, retrievalDocuments.sourceId, retrievalDocuments.sourcePart], set: { projectId: document.projectId, taskId: document.taskId, runId: document.runId, title: document.title, content: document.content, contextualPrefix: document.contextualPrefix, searchText: document.searchText, embeddingText: document.embeddingText, contentHash: document.contentHash, authorityBasisPoints: document.authorityBasisPoints, sensitivity: document.sensitivity, status: document.status, validFromAt: document.validFromAt, validUntilAt: document.validUntilAt, sourceRecordedAt: document.sourceRecordedAt, metadata: document.metadata, indexedAt: new Date(), updatedAt: new Date() } }).returning({ id: retrievalDocuments.id });
-        storedIds.push(stored!.id);
-        for (const profile of activeProfiles) {
-          const inserted = await tx.insert(retrievalEmbeddingJobs).values({ workspaceId, projectId: project.id, documentId: stored!.id, profileKey: profile.key, contentHash: document.contentHash }).onConflictDoNothing().returning({ id: retrievalEmbeddingJobs.id });
-          queuedEmbeddingJobs += inserted.length;
+        const existing = existingBySource.get(documentKey(document));
+        if (existing?.contentHash === document.contentHash) {
+          storedIds.push(existing.id);
         }
       }
-      const existing = await tx.select({ id: retrievalDocuments.id }).from(retrievalDocuments).where(and(eq(retrievalDocuments.workspaceId, workspaceId), eq(retrievalDocuments.projectId, project.id)));
-      const staleIds = existing.map((entry) => entry.id).filter((id) => !storedIds.includes(id));
+      if (changedDocuments.length) await tx.execute(sql`SET LOCAL gin_pending_list_limit = '64MB'`);
+      for (const batch of batches(changedDocuments, 1_000)) {
+        const stored = await tx.insert(retrievalDocuments).values(batch).onConflictDoUpdate({
+          target: [retrievalDocuments.workspaceId, retrievalDocuments.sourceType, retrievalDocuments.sourceId, retrievalDocuments.sourcePart],
+          set: {
+            projectId: sql`excluded.project_id`, taskId: sql`excluded.task_id`, runId: sql`excluded.run_id`, title: sql`excluded.title`, content: sql`excluded.content`,
+            contextualPrefix: sql`excluded.contextual_prefix`, searchText: sql`excluded.search_text`, embeddingText: sql`excluded.embedding_text`, contentHash: sql`excluded.content_hash`,
+            authorityBasisPoints: sql`excluded.authority_basis_points`, sensitivity: sql`excluded.sensitivity`, status: sql`excluded.status`, validFromAt: sql`excluded.valid_from_at`,
+            validUntilAt: sql`excluded.valid_until_at`, sourceRecordedAt: sql`excluded.source_recorded_at`, metadata: sql`excluded.metadata`, indexedAt: new Date(), updatedAt: new Date(),
+          },
+        }).returning({ id: retrievalDocuments.id });
+        storedIds.push(...stored.map((entry) => entry.id));
+      }
+      const storedIdSet = new Set(storedIds);
+      const staleIds = existingDocuments.map((entry) => entry.id).filter((id) => !storedIdSet.has(id));
       if (staleIds.length) {
         await tx.delete(retrievalEmbeddings).where(inArray(retrievalEmbeddings.documentId, staleIds));
         await tx.delete(retrievalDocuments).where(inArray(retrievalDocuments.id, staleIds));
       }
-      return { projectId: project.id, indexedDocuments: documents.length, queuedEmbeddingJobs, removedDocuments: staleIds.length, sourceCounts: countBy(documents, (document) => document.sourceType) };
+      const queued = await tx.execute(sql`
+        WITH inserted AS (
+          INSERT INTO retrieval_embedding_jobs (id, workspace_id, project_id, document_id, profile_key, content_hash)
+          SELECT gen_random_uuid(), d.workspace_id, d.project_id, d.id, p.key, d.content_hash
+          FROM retrieval_documents d
+          CROSS JOIN embedding_profiles p
+          WHERE d.workspace_id = ${workspaceId}::uuid
+            AND d.project_id = ${project.id}::uuid
+            AND p.active = true
+            AND NOT EXISTS (
+              SELECT 1 FROM retrieval_embeddings e
+              WHERE e.document_id = d.id AND e.profile_key = p.key AND e.content_hash = d.content_hash
+            )
+          ON CONFLICT (document_id, profile_key, content_hash) DO NOTHING
+          RETURNING 1
+        )
+        SELECT count(*)::integer AS count FROM inserted
+      `);
+      const queuedEmbeddingJobs = Number((queued as any).rows[0]?.count ?? 0);
+      return { projectId: project.id, indexedDocuments: documents.length, changedDocuments: changedDocuments.length, unchangedDocuments: documents.length - changedDocuments.length, queuedEmbeddingJobs, removedDocuments: staleIds.length, sourceCounts: countBy(documents, (document) => document.sourceType) };
     });
   }
 
@@ -243,3 +274,5 @@ function text(values: unknown[]): string { return values.flatMap((value) => Arra
 function sha256(value: string): string { return createHash('sha256').update(value).digest('hex'); }
 function countBy<T>(values: T[], key: (value: T) => string) { return values.reduce<Record<string, number>>((counts, value) => ({ ...counts, [key(value)]: (counts[key(value)] ?? 0) + 1 }), {}); }
 function stripSearchText(row: CandidateRow) { const { searchText: _searchText, lexical_score: _lexical, semantic_score: _semantic, ...document } = row; return document; }
+function batches<T>(values: T[], size: number): T[][] { const result: T[][] = []; for (let index = 0; index < values.length; index += size) result.push(values.slice(index, index + size)); return result; }
+function documentKey(document: { sourceType: string; sourceId: string; sourcePart: number }): string { return `${document.sourceType}\u0000${document.sourceId}\u0000${document.sourcePart}`; }
