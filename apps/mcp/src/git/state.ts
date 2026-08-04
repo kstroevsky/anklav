@@ -27,7 +27,7 @@ export async function inspectGit(cwd = process.cwd()): Promise<LocalGitState> {
     git(root, ['rev-parse', 'HEAD']),
     git(root, ['symbolic-ref', '--quiet', '--short', 'HEAD']).catch(() => ''),
     git(root, ['remote', 'get-url', 'origin']).catch(() => ''),
-    git(root, ['status', '--porcelain=v1', '-z']),
+    gitRaw(root, ['status', '--porcelain=v1', '-z']),
     gitBuffer(root, ['diff', '--binary', '--no-ext-diff', 'HEAD']),
     git(root, ['ls-files', '--others', '--exclude-standard', '-z']),
   ]);
@@ -92,6 +92,10 @@ export async function applyPatch(root: string, patch: Buffer): Promise<void> {
 
 async function git(cwd: string, args: string[]): Promise<string> {
   return (await exec('git', args, { cwd, encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 })).stdout.trim();
+}
+
+async function gitRaw(cwd: string, args: string[]): Promise<string> {
+  return (await exec('git', args, { cwd, encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 })).stdout;
 }
 
 async function gitBuffer(cwd: string, args: string[]): Promise<Buffer> {

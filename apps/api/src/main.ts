@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookie from '@fastify/cookie';
+import formBody from '@fastify/formbody';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import rawBody from 'fastify-raw-body';
@@ -12,6 +13,7 @@ import { ProblemDetailsFilter } from './common/http';
 export async function createApplication(): Promise<NestFastifyApplication> {
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter({ trustProxy: true }), { bodyParser: false, bufferLogs: true });
   await app.register(cookie as any);
+  await app.register(formBody as any);
   await app.register(helmet as any, { contentSecurityPolicy: false });
   await app.register(rateLimit as any, { global: false });
   // GitHub signs the exact payload bytes; keeping them is required for safe webhook verification.

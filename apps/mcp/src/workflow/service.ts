@@ -21,7 +21,7 @@ export class HandoffWorkflow {
     const git = await inspectGit(this.cwd);
     const workspaces = await this.client.call<RecordValue[]>('list_workspaces', {});
     const workspace = select(workspaces, input.workspace, ['id', 'name', 'slug'], 'workspace');
-    const projectPage = await this.client.call<RecordValue>('list_projects', { workspaceId: workspace.id, limit: 200 });
+    const projectPage = await this.client.call<RecordValue>('list_projects', { workspaceId: workspace.id, limit: 100 });
     const projectRows = array(projectPage.items).map((entry) => entry.project ?? entry);
     const project = select(projectRows, input.project, ['id', 'name', 'issueKey'], 'project');
     const repositories = await this.client.call<RecordValue[]>('list_repositories', { workspaceId: workspace.id });
@@ -267,7 +267,7 @@ export class HandoffWorkflow {
   }
 
   private async resolveTask(state: RepositoryState, reference: string): Promise<RecordValue> {
-    const page = await this.client.call<RecordValue>('list_tasks', { workspaceId: state.workspaceId, projectId: state.projectId, limit: 200 });
+    const page = await this.client.call<RecordValue>('list_tasks', { workspaceId: state.workspaceId, projectId: state.projectId, limit: 100 });
     const tasks = array(page.items).map((entry) => entry.task ?? entry);
     const matches = tasks.filter((task) => [task.id, task.identifier, task.title].some((value) => equal(value, reference)));
     if (matches.length !== 1) throw new Error(matches.length ? `Task reference ${reference} is ambiguous.` : `Task ${reference} was not found in ${state.projectName}.`);
@@ -275,7 +275,7 @@ export class HandoffWorkflow {
   }
 
   private async selectContinuableTask(state: RepositoryState): Promise<RecordValue> {
-    const page = await this.client.call<RecordValue>('list_tasks', { workspaceId: state.workspaceId, projectId: state.projectId, limit: 200 });
+    const page = await this.client.call<RecordValue>('list_tasks', { workspaceId: state.workspaceId, projectId: state.projectId, limit: 100 });
     const rows = array(page.items).filter((entry) => !['completed', 'cancelled', 'archived'].includes(entry.state?.taskSemantic)).map((entry) => entry.task ?? entry);
     if (rows.length !== 1) throw new Error(rows.length ? `Several active tasks exist: ${rows.slice(0, 10).map((task) => task.identifier).join(', ')}. Run anklav continue TASK-ID.` : 'No active task exists in this project.');
     return this.client.call<RecordValue>('get_task', { workspaceId: state.workspaceId, taskId: rows[0].id });

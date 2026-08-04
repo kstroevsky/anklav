@@ -88,6 +88,7 @@ describe('usable handoff CLI contracts', () => {
     await writeFile(join(source, 'tracked.txt'), 'after\n');
     await writeFile(join(source, 'untracked.txt'), 'new\n');
     const captured = await inspectGit(source);
+    expect(captured.changedPaths).toEqual(['tracked.txt', 'untracked.txt']);
     await applyPatch(target, captured.patch);
     const restored = await inspectGit(target);
     expect(restored.changedPaths).toEqual(captured.changedPaths);

@@ -15,6 +15,7 @@ class FakeClient implements ToolClient {
   readonly calls: Array<{ name: string; arguments: Record<string, unknown> }> = [];
   constructor(private readonly handler: (name: string, arguments_: Record<string, any>) => any) {}
   async call<T>(name: string, arguments_: Record<string, unknown>): Promise<T> {
+    if (['list_projects', 'list_tasks'].includes(name) && Number(arguments_.limit) > 100) throw new Error(`${name} exceeds the public page limit.`);
     this.calls.push({ name, arguments: arguments_ });
     return await this.handler(name, arguments_) as T;
   }

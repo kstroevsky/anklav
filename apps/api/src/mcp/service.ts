@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
@@ -17,16 +17,17 @@ import { proposeClaimInput, proposeDecisionInput } from '../memory/inputs';
 import { embeddingInput, listRetrievalDocumentsInput, refreshRetrievalInput, retrievalSearchInput } from '../retrieval/inputs';
 import { RetrievalService } from '../retrieval/service';
 
+@Injectable()
 export class McpService {
   constructor(
-    private readonly oauth: OAuthService,
-    private readonly workspaces: WorkspaceService,
-    private readonly resources: ResourceService,
-    private readonly knowledge: PortfolioKnowledgeService,
-    private readonly execution: ExecutionService,
-    private readonly evidence: EvidenceService,
-    private readonly memory: MemoryService,
-    private readonly retrieval: RetrievalService,
+    @Inject(OAuthService) private readonly oauth: OAuthService,
+    @Inject(WorkspaceService) private readonly workspaces: WorkspaceService,
+    @Inject(ResourceService) private readonly resources: ResourceService,
+    @Inject(PortfolioKnowledgeService) private readonly knowledge: PortfolioKnowledgeService,
+    @Inject(ExecutionService) private readonly execution: ExecutionService,
+    @Inject(EvidenceService) private readonly evidence: EvidenceService,
+    @Inject(MemoryService) private readonly memory: MemoryService,
+    @Inject(RetrievalService) private readonly retrieval: RetrievalService,
   ) {}
 
   createServer(principal: McpPrincipal): McpServer {
