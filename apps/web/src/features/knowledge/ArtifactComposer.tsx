@@ -1,0 +1,10 @@
+import { useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { api, mutation, type Project, type Workspace } from '../../api';
+import { ControlDrawer } from '../../components/organisms/ControlDrawer';
+import { artifactTypes } from './types';
+
+export function ArtifactComposer({ workspace, projects, close, done }: { workspace: Workspace; projects: Project[]; close: () => void; done: () => void }) {
+  const [git, setGit] = useState(false); const create = useMutation({ mutationFn: (body: any) => api(`/workspaces/${workspace.id}/knowledge-artifacts`, mutation('POST', body)), onSuccess: done });
+  return <ControlDrawer title="Record artifact" close={close}><form className="drawer-form" onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); create.mutate({ projectId: form.get('projectId') || null, type: git ? 'git_reference' : form.get('type'), title: form.get('title'), summary: form.get('summary'), ...(git ? { repositoryReference: { repositoryFullName: form.get('repository'), path: form.get('path'), commitSha: form.get('commit') || null } } : { nativeContent: form.get('content') }) }); }}><label>Project<select name="projectId"><option value="">Workspace-wide</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label><label className="check"><input type="checkbox" checked={git} onChange={(event) => setGit(event.target.checked)} /> Git-backed immutable source</label>{!git && <label>Type<select name="type">{artifactTypes.filter((value) => value !== 'git_reference').map((value) => <option key={value}>{value}</option>)}</select></label>}<label>Title<input name="title" required /></label><label>Summary<textarea name="summary" /></label>{git ? <><label>Repository<input name="repository" placeholder="owner/repository" required /></label><label>Path<input name="path" required /></label><label>Commit SHA<input name="commit" /></label></> : <label>Native content<textarea name="content" required /></label>}<button className="button primary">Record artifact</button></form></ControlDrawer>;
+}

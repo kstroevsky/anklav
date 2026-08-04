@@ -30,7 +30,8 @@ export abstract class PortfolioArtifactService extends PortfolioMilestoneService
     if (!artifact) throw new NotFoundException('Knowledge artifact not found.');
     const [reference] = await this.database.db.select().from(repositoryArtifactReferences).where(eq(repositoryArtifactReferences.artifactId, artifactId)).limit(1);
     const revisions = await this.database.db.select().from(knowledgeArtifactRevisions).where(eq(knowledgeArtifactRevisions.artifactId, artifactId)).orderBy(desc(knowledgeArtifactRevisions.revision));
-    return { ...artifact, repositoryReference: reference ?? null, revisions };
+    const relations = await this.database.db.select().from(artifactRelations).where(and(eq(artifactRelations.workspaceId, workspaceId), or(eq(artifactRelations.fromArtifactId, artifactId), eq(artifactRelations.toArtifactId, artifactId)))).orderBy(asc(artifactRelations.relation), asc(artifactRelations.id));
+    return { ...artifact, repositoryReference: reference ?? null, revisions, relations };
   }
 
   async recordArtifact(workspaceId: string, user: AuthUser, input: ArtifactInput) {
