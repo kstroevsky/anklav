@@ -51,14 +51,19 @@ export async function discoverCodexSessions(repositoryRoot: string, options: Omi
     if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT') return [];
     throw error;
   });
-  const candidates: { path: string; modified: number }[] = [];
+  const candidates: { path: string; modified: number; nativeSessionId: string }[] = [];
   for (const path of files) {
     const details = await stat(path);
     if (options.since && details.mtimeMs < options.since.getTime() - 5 * 60_000) continue;
     const metadata = await sessionMetadata(path).catch(() => null);
-    if (metadata && await sameRepository(metadata.cwd, repositoryRoot)) candidates.push({ path, modified: details.mtimeMs });
+    if (metadata && await sameRepository(metadata.cwd, repositoryRoot)) candidates.push({ path, modified: details.mtimeMs, nativeSessionId: metadata.nativeSessionId });
   }
-  return candidates.sort((left, right) => right.modified - left.modified || left.path.localeCompare(right.path)).map((candidate) => candidate.path);
+  const seen = new Set<string>();
+  return candidates.sort((left, right) => right.modified - left.modified || left.path.localeCompare(right.path)).filter((candidate) => {
+    if (seen.has(candidate.nativeSessionId)) return false;
+    seen.add(candidate.nativeSessionId);
+    return true;
+  }).map((candidate) => candidate.path);
 }
 
 export async function parseCodexSession(path: string): Promise<ParsedCodexSession> {
@@ -221,13 +226,14 @@ function normalize(record: JsonRecord, line: number, turnId: string | null, call
   };
 }
 
-async function sessionMetadata(path: string): Promise<{ cwd: string }> {
+async function sessionMetadata(path: string): Promise<{ cwd: string; nativeSessionId: string }> {
   const first = (await readFile(path, { encoding: 'utf8' })).split('\n').find(Boolean);
   if (!first) throw new Error('Empty Codex session.');
   const parsed = JSON.parse(first) as JsonRecord;
   const cwd = string(parsed.payload?.cwd);
-  if (!cwd) throw new Error('Codex session has no cwd.');
-  return { cwd };
+  const nativeSessionId = string(parsed.payload?.session_id) || string(parsed.payload?.id);
+  if (!cwd || !nativeSessionId) throw new Error('Codex session has incomplete identity metadata.');
+  return { cwd, nativeSessionId };
 }
 
 async function jsonlFiles(root: string): Promise<string[]> {

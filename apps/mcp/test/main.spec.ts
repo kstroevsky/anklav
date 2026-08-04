@@ -72,12 +72,16 @@ describe('usable handoff CLI contracts', () => {
     const subdirectory = join(repository, 'packages', 'api');
     await mkdir(subdirectory, { recursive: true });
     const nestedSession = join(directory, 'nested.jsonl');
+    const nestedDuplicate = join(directory, 'nested-duplicate.jsonl');
     const parentSession = join(directory, 'parent.jsonl');
     await writeFile(nestedSession, JSON.stringify({ type: 'session_meta', payload: { session_id: 'nested', cwd: subdirectory } }));
+    await writeFile(nestedDuplicate, JSON.stringify({ type: 'session_meta', payload: { session_id: 'nested', cwd: subdirectory } }));
     await writeFile(parentSession, JSON.stringify({ type: 'session_meta', payload: { session_id: 'parent', cwd: directory } }));
     await expect(discoverCodexSession(repository, { explicitPath: nestedSession })).resolves.toBe(nestedSession);
     await expect(discoverCodexSession(repository, { explicitPath: parentSession })).rejects.toThrow('belongs to');
-    await expect(discoverCodexSessions(repository, { root: directory })).resolves.toEqual([nestedSession]);
+    const discovered = await discoverCodexSessions(repository, { root: directory });
+    expect(discovered).toHaveLength(1);
+    expect([nestedSession, nestedDuplicate]).toContain(discovered[0]);
   });
 
   it('captures and restores tracked and untracked dirty work as one reproducible patch', async () => {

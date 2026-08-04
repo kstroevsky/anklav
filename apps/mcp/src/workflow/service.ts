@@ -136,12 +136,12 @@ export class HandoffWorkflow {
         leaseId = lease.lease?.id;
         await this.uploadParsedSession(state, run.nativeSession.id, parsed);
         await this.client.call('finish_run', { workspaceId: state.workspaceId, runId: run.id, status: 'completed', outcomeSummary: `Imported redacted Codex session ${parsed.nativeSessionId} with ${parsed.items.length} normalized item(s).`, tokenUsage: {} });
-        if (leaseId) await this.client.call('release_task_lease', { workspaceId: state.workspaceId, leaseId });
         existingNativeIds.add(parsed.nativeSessionId);
         report.imported += 1;
       } catch (error) {
-        if (run?.id) await this.client.call('finish_run', { workspaceId: state.workspaceId, runId: run.id, status: 'failed', outcomeSummary: 'Codex history import failed before completion.', tokenUsage: {} }).catch(() => undefined);
-        if (leaseId) await this.client.call('release_task_lease', { workspaceId: state.workspaceId, leaseId }).catch(() => undefined);
+        let ended = false;
+        if (run?.id) ended = await this.client.call('finish_run', { workspaceId: state.workspaceId, runId: run.id, status: 'failed', outcomeSummary: 'Codex history import failed before completion.', tokenUsage: {} }).then(() => true).catch(() => false);
+        if (!ended && leaseId) await this.client.call('release_task_lease', { workspaceId: state.workspaceId, leaseId }).catch(() => undefined);
         report.failures.push({ fileName: basename(path), nativeSessionId: parsed.nativeSessionId, message: error instanceof Error ? error.message : 'Codex session import failed.' });
       }
     }

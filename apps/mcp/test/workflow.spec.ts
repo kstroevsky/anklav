@@ -139,7 +139,7 @@ describe('cross-device handoff workflow', () => {
       if (name === 'list_task_runs') return [];
       if (name === 'start_run') return { id: 'run-1', nativeSession: { id: 'native-record-1' } };
       if (name === 'claim_task_lease') return { lease: { id: 'lease-1' } };
-      if (['ingest_native_session', 'finish_run', 'release_task_lease'].includes(name)) return { id: arguments_.runId, status: arguments_.status };
+      if (['ingest_native_session', 'finish_run'].includes(name)) return { id: arguments_.runId, status: arguments_.status };
       throw new Error(`Unexpected tool ${name}`);
     });
     const store = new RepositoryStateStore(join(root, 'state.json'));
@@ -152,5 +152,6 @@ describe('cross-device handoff workflow', () => {
     expect(JSON.stringify(itemBatch?.arguments.items)).toContain('[REDACTED]');
     expect(JSON.stringify(itemBatch?.arguments.items)).not.toContain('history-secret-value');
     expect(client.calls.filter((call) => call.name === 'finish_run' && call.arguments.status === 'completed')).toHaveLength(1);
+    expect(client.calls.some((call) => call.name === 'release_task_lease')).toBe(false);
   });
 });
