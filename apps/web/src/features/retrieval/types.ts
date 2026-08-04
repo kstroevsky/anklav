@@ -4,4 +4,4 @@ export type RetrievalDocument = { id: string; projectId: string; taskId: string 
 export type SearchResponse = { intent: string; results: { document: RetrievalDocument; score: number; scores: { lexical: number; semantic: number; authority: number; affinity: number; recency: number } }[]; trace: { id: string; candidateCounts: Record<string, number>; scoring: unknown; semanticUsed: boolean; createdAt: string } };
 export type Profile = { key: string; provider: string; model: string; modelRevision: string; dimensions: number; maxInputTokens: number; normalized: boolean; storageLane: string; active: boolean };
 export type Job = { id: string; documentId: string; profileKey: string; status: string; attempts: number; maxAttempts: number; lastError: string | null; runAfter: string; completedAt: string | null };
-export type RetrievalAdminTab = 'profiles' | 'jobs' | 'missing' | 'evaluation';
+export type RetrievalAdminTab = 'profiles' | 'jobs' | 'documents' | 'missing' | 'evaluation';
