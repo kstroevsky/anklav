@@ -4200,6 +4200,29 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceId}/retrieval/evaluations": {
+      "post": {
+        "operationId": "RetrievalController_evaluate",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Retrieval"
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceId}/retrieval/refresh": {
       "post": {
         "operationId": "RetrievalController_refresh",

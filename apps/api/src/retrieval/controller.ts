@@ -2,7 +2,7 @@ import { BadRequestException, Body, Controller, Get, HttpCode, Param, Post, Quer
 import type { AuthedRequest } from '../auth';
 import { SessionGuard } from '../auth';
 import { parseBody } from '../common/http';
-import { listEmbeddingJobsInput, listRetrievalDocumentsInput, refreshRetrievalInput, retrievalSearchInput } from './inputs';
+import { listEmbeddingJobsInput, listRetrievalDocumentsInput, refreshRetrievalInput, retrievalEvaluationInput, retrievalSearchInput } from './inputs';
 import { RetrievalService } from './service';
 
 @UseGuards(SessionGuard)
@@ -23,6 +23,10 @@ export class RetrievalController {
   @Post('search')
   @HttpCode(200)
   search(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Body() body: unknown) { return this.retrieval.search(workspaceId, request.user, parseBody(retrievalSearchInput, body)); }
+
+  @Post('evaluations')
+  @HttpCode(200)
+  evaluate(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Body() body: unknown) { return this.retrieval.evaluate(workspaceId, request.user, parseBody(retrievalEvaluationInput, body)); }
 
   @Post('refresh')
   refresh(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Body() body: unknown) { return this.retrieval.refresh(workspaceId, request.user, parseBody(refreshRetrievalInput, body)); }

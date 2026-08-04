@@ -7,7 +7,8 @@ import { agentRuns, embeddingProfiles, evidenceArtifacts, knowledgeArtifactRevis
 import { WorkspaceService } from '../workspace.service';
 import { buildContextualPrefix, buildEmbeddingText, semanticUnits } from './document';
 import { EMBEDDING_PROVIDER, type EmbeddingProvider } from './embedding-provider';
-import type { ListEmbeddingJobsInput, ListRetrievalDocumentsInput, RefreshRetrievalInput, RetrievalIntent, RetrievalSearchInput } from './inputs';
+import { evaluateRetrievalRuns } from './evaluation';
+import type { ListEmbeddingJobsInput, ListRetrievalDocumentsInput, RefreshRetrievalInput, RetrievalEvaluationInput, RetrievalIntent, RetrievalSearchInput } from './inputs';
 import { EMBEDDING_STORAGE_LANE } from './profiles';
 import { classifyRetrievalIntent, hybridScore, retrievalWeights } from './ranking';
 
@@ -188,6 +189,25 @@ export class RetrievalService {
     const [trace] = await this.database.db.select().from(retrievalTraces).where(and(eq(retrievalTraces.id, traceId), eq(retrievalTraces.workspaceId, workspaceId))).limit(1);
     if (!trace) throw new NotFoundException('Retrieval trace not found.');
     return trace;
+  }
+
+  async evaluate(workspaceId: string, user: AuthUser, input: RetrievalEvaluationInput) {
+    const runs = [];
+    for (const evaluationCase of input.cases) {
+      const result = await this.search(workspaceId, user, {
+        query: evaluationCase.query,
+        projectId: input.projectId,
+        taskId: evaluationCase.taskId,
+        sourceTypes: evaluationCase.sourceTypes,
+        intent: evaluationCase.intent,
+        includeHistorical: evaluationCase.includeHistorical,
+        expandRelatedTasks: evaluationCase.expandRelatedTasks,
+        embeddingProfileKey: input.embeddingProfileKey,
+        limit: evaluationCase.limit,
+      });
+      runs.push({ case: evaluationCase, results: result.results, traceId: result.trace.id, intent: result.intent });
+    }
+    return evaluateRetrievalRuns(input, runs);
   }
 
   private async requireProject(workspaceId: string, projectId: string) {
