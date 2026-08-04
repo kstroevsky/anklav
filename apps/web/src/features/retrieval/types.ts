@@ -1,0 +1,7 @@
+export const retrievalSourceTypes = ['project', 'task', 'claim', 'decision', 'checkpoint', 'run_episode', 'knowledge_artifact', 'evidence_preview', 'session_episode'];
+export const retrievalIntents = ['current_fact', 'historical_explanation', 'similar_task', 'exact_error', 'architectural_decision', 'verification_evidence', 'broad_summary'];
+export type RetrievalDocument = { id: string; projectId: string; taskId: string | null; runId: string | null; sourceType: string; sourceId: string; sourcePart: number; title: string; content: string; contextualPrefix: string; authorityBasisPoints: number; sensitivity: string; status: string; validFromAt: string | null; validUntilAt: string | null; sourceRecordedAt: string; metadata: Record<string, unknown> };
+export type SearchResponse = { intent: string; results: { document: RetrievalDocument; score: number; scores: { lexical: number; semantic: number; authority: number; affinity: number; recency: number } }[]; trace: { id: string; candidateCounts: Record<string, number>; scoring: unknown; semanticUsed: boolean; createdAt: string } };
+export type Profile = { key: string; provider: string; model: string; modelRevision: string; dimensions: number; maxInputTokens: number; normalized: boolean; storageLane: string; active: boolean };
+export type Job = { id: string; documentId: string; profileKey: string; status: string; attempts: number; maxAttempts: number; lastError: string | null; runAfter: string; completedAt: string | null };
+export type RetrievalAdminTab = 'profiles' | 'jobs' | 'missing' | 'evaluation';
