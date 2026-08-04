@@ -3,9 +3,10 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { and, asc, desc, eq, gt, inArray, isNull, lte, sql } from 'drizzle-orm';
 import type { AuthUser } from '../auth';
 import { DatabaseService } from '../db/database.service';
-import { agentRuns, evidenceArtifacts, evidenceEventLinks, gitSliceEvidence, gitSlices, githubConnections, githubRepositories, knowledgeArtifacts, nativeSessionEvidence, nativeSessionIngestions, nativeSessionItems, nativeSessions, nativeSessionTurns, runCheckpoints, runEvents, taskLeases, tasks } from '../db/schema';
+import { agentRuns, evidenceArtifacts, evidenceEventLinks, gitSliceEvidence, gitSlices, githubConnections, githubRepositories, knowledgeArtifacts, nativeSessionEvidence, nativeSessionIngestions, nativeSessionItems, nativeSessions, nativeSessionTurns, repositories, repositoryLocalAliases, runCheckpoints, runEvents, taskLeases, tasks } from '../db/schema';
 import { WorkspaceService } from '../workspace.service';
 import type { AppendRunEventInput, CheckpointInput, ClaimLeaseInput, FinishRunInput, GitSliceInput, NativeSessionIngestionInput, NativeSessionInput, StartRunInput } from './inputs';
+import { handoffBlockers } from './handoff';
 
 @Injectable()
 export class ExecutionService {
@@ -17,6 +18,51 @@ export class ExecutionService {
     if (!runs.length) return [];
     const sessions = await this.database.db.select().from(nativeSessions).where(inArray(nativeSessions.runId, runs.map((run) => run.id))).orderBy(asc(nativeSessions.createdAt));
     return runs.map((run) => ({ ...run, nativeSessions: sessions.filter((session) => session.runId === run.id) }));
+  }
+
+  async getTaskOperations(workspaceId: string, user: AuthUser, taskId: string) {
+    const task = await this.requireTask(workspaceId, user, taskId);
+    const now = new Date();
+    const [latestCheckpoint, latestSlice, activeLeases] = await Promise.all([
+      this.database.db.select().from(runCheckpoints).where(and(eq(runCheckpoints.workspaceId, workspaceId), eq(runCheckpoints.taskId, taskId))).orderBy(desc(runCheckpoints.createdAt), desc(runCheckpoints.id)).limit(1),
+      this.database.db.select().from(gitSlices).where(and(eq(gitSlices.workspaceId, workspaceId), eq(gitSlices.taskId, taskId))).orderBy(desc(gitSlices.capturedAt), desc(gitSlices.id)).limit(1),
+      this.database.db.select().from(taskLeases).where(and(eq(taskLeases.workspaceId, workspaceId), eq(taskLeases.taskId, taskId), isNull(taskLeases.releasedAt), gt(taskLeases.expiresAt, now))).orderBy(asc(taskLeases.expiresAt)),
+    ]);
+    const checkpoint = latestCheckpoint[0] ?? null;
+    const slice = latestSlice[0] ?? null;
+    const patchEvidence = slice ? await this.database.db.select().from(gitSliceEvidence).where(and(eq(gitSliceEvidence.gitSliceId, slice.id), eq(gitSliceEvidence.role, 'dirty_patch'))).limit(1) : [];
+    const run = checkpoint ? await this.database.db.select().from(agentRuns).where(eq(agentRuns.id, checkpoint.runId)).limit(1) : [];
+    const conflicts = activeLeases.filter((lease) => lease.writeAccess);
+    const blockers = handoffBlockers({ checkpointPresent: Boolean(checkpoint), gitSlice: slice, patchEvidenceArtifactId: patchEvidence[0]?.evidenceArtifactId, activeWriteLeaseCount: conflicts.length });
+    return { ready: blockers.length === 0, blockers, checkpoint, gitSlice: slice ? { ...slice, patchEvidenceArtifactId: patchEvidence[0]?.evidenceArtifactId ?? null } : null, run: run[0] ?? null, activeLeases, command: `anklav continue ${task.identifier}` };
+  }
+
+  async listWorkspaceNativeSessions(workspaceId: string, user: AuthUser, offset = 0, limit = 100) {
+    await this.workspaces.requireMembership(workspaceId, user);
+    const safeLimit = Math.min(Math.max(limit, 1), 200);
+    const totals = await this.database.db.select({ count: sql<number>`count(*)::int` }).from(nativeSessions).where(eq(nativeSessions.workspaceId, workspaceId));
+    const count = totals[0]?.count ?? 0;
+    const rows = await this.database.db.select({ session: nativeSessions, run: agentRuns, task: tasks }).from(nativeSessions).innerJoin(agentRuns, eq(nativeSessions.runId, agentRuns.id)).innerJoin(tasks, eq(agentRuns.taskId, tasks.id)).where(eq(nativeSessions.workspaceId, workspaceId)).orderBy(desc(nativeSessions.updatedAt), desc(nativeSessions.id)).limit(safeLimit).offset(Math.max(offset, 0));
+    return { items: rows.map((row) => ({ ...row.session, run: row.run, task: row.task })), total: count ?? 0, nextOffset: offset + rows.length < (count ?? 0) ? offset + rows.length : null };
+  }
+
+  async listMachines(workspaceId: string, user: AuthUser) {
+    await this.workspaces.requireMembership(workspaceId, user);
+    const [runs, leases, aliases] = await Promise.all([
+      this.database.db.select({ run: agentRuns, task: tasks }).from(agentRuns).innerJoin(tasks, eq(agentRuns.taskId, tasks.id)).where(eq(agentRuns.workspaceId, workspaceId)).orderBy(desc(agentRuns.startedAt)),
+      this.database.db.select({ lease: taskLeases, task: tasks }).from(taskLeases).innerJoin(tasks, eq(taskLeases.taskId, tasks.id)).where(and(eq(taskLeases.workspaceId, workspaceId), isNull(taskLeases.releasedAt), gt(taskLeases.expiresAt, new Date()))),
+      this.database.db.select({ alias: repositoryLocalAliases, repository: repositories }).from(repositoryLocalAliases).innerJoin(repositories, eq(repositoryLocalAliases.repositoryId, repositories.id)).where(eq(repositories.workspaceId, workspaceId)).orderBy(asc(repositoryLocalAliases.machineIdentity)),
+    ]);
+    const identities = new Set([...runs.map((entry) => entry.run.machineIdentity), ...leases.map((entry) => entry.lease.machineIdentity), ...aliases.map((entry) => entry.alias.machineIdentity)]);
+    return [...identities].map((machineIdentity) => {
+      const machineRuns = runs.filter((entry) => entry.run.machineIdentity === machineIdentity);
+      const active = machineRuns.find((entry) => entry.run.status === 'running') ?? null;
+      const last = machineRuns[0] ?? null;
+      const machineAliases = aliases.filter((entry) => entry.alias.machineIdentity === machineIdentity);
+      const machineLeases = leases.filter((entry) => entry.lease.machineIdentity === machineIdentity);
+      const lastSeenAt = machineLeases[0]?.lease.lastRenewedAt ?? last?.run.endedAt ?? last?.run.startedAt ?? machineAliases[0]?.alias.updatedAt ?? null;
+      return { machineIdentity, lastSeenAt, activeRun: active?.run ?? null, activeTask: active?.task ?? null, leases: machineLeases.map((entry) => ({ ...entry.lease, task: entry.task })), aliases: machineAliases.map((entry) => ({ ...entry.alias, repository: entry.repository })), lastSyncAt: null };
+    }).sort((left, right) => Date.parse(String(right.lastSeenAt ?? 0)) - Date.parse(String(left.lastSeenAt ?? 0)));
   }
 
   async getRun(workspaceId: string, user: AuthUser, runId: string) {

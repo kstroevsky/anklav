@@ -32,7 +32,22 @@ export class RetrievalService {
   async listEmbeddingJobs(workspaceId: string, user: AuthUser, input: ListEmbeddingJobsInput) {
     await this.workspaces.requireMembership(workspaceId, user);
     await this.requireProject(workspaceId, input.projectId);
-    return this.database.db.select().from(retrievalEmbeddingJobs).where(and(eq(retrievalEmbeddingJobs.workspaceId, workspaceId), eq(retrievalEmbeddingJobs.projectId, input.projectId), input.status ? eq(retrievalEmbeddingJobs.status, input.status) : undefined)).orderBy(asc(retrievalEmbeddingJobs.status), asc(retrievalEmbeddingJobs.runAfter)).limit(input.limit);
+    return this.database.db.select().from(retrievalEmbeddingJobs).where(and(eq(retrievalEmbeddingJobs.workspaceId, workspaceId), eq(retrievalEmbeddingJobs.projectId, input.projectId), input.status ? eq(retrievalEmbeddingJobs.status, input.status) : undefined, input.profileKey ? eq(retrievalEmbeddingJobs.profileKey, input.profileKey) : undefined)).orderBy(asc(retrievalEmbeddingJobs.status), asc(retrievalEmbeddingJobs.runAfter)).limit(input.limit);
+  }
+
+  async listEmbeddingJobsPage(workspaceId: string, user: AuthUser, input: ListEmbeddingJobsInput, offset: number) {
+    await this.workspaces.requireMembership(workspaceId, user); await this.requireProject(workspaceId, input.projectId);
+    const where = and(eq(retrievalEmbeddingJobs.workspaceId, workspaceId), eq(retrievalEmbeddingJobs.projectId, input.projectId), input.status ? eq(retrievalEmbeddingJobs.status, input.status) : undefined, input.profileKey ? eq(retrievalEmbeddingJobs.profileKey, input.profileKey) : undefined);
+    const totals = await this.database.db.select({ count: sql<number>`count(*)::int` }).from(retrievalEmbeddingJobs).where(where);
+    const items = await this.database.db.select().from(retrievalEmbeddingJobs).where(where).orderBy(asc(retrievalEmbeddingJobs.status), asc(retrievalEmbeddingJobs.runAfter)).limit(input.limit).offset(offset);
+    const total = totals[0]?.count ?? 0; return { items, total, nextOffset: offset + items.length < total ? offset + items.length : null };
+  }
+
+  async retryEmbeddingJob(workspaceId: string, user: AuthUser, jobId: string) {
+    await this.workspaces.requireMembership(workspaceId, user, 'member');
+    const [job] = await this.database.db.update(retrievalEmbeddingJobs).set({ status: 'queued', attempts: 0, lastError: null, runAfter: new Date(), completedAt: null, updatedAt: new Date() }).where(and(eq(retrievalEmbeddingJobs.id, jobId), eq(retrievalEmbeddingJobs.workspaceId, workspaceId), eq(retrievalEmbeddingJobs.status, 'dead'))).returning();
+    if (!job) throw new BadRequestException('Only a failed/dead embedding job can be retried.');
+    return job;
   }
 
   async refresh(workspaceId: string, user: AuthUser, input: RefreshRetrievalInput) {
@@ -134,6 +149,15 @@ export class RetrievalService {
     const profile = await this.requireEmbeddingProfile(input.embeddingProfileKey);
     const rows = await this.database.db.select({ document: retrievalDocuments, embeddingDocumentId: retrievalEmbeddings.documentId }).from(retrievalDocuments).leftJoin(retrievalEmbeddings, and(eq(retrievalEmbeddings.documentId, retrievalDocuments.id), eq(retrievalEmbeddings.profileKey, profile.key), eq(retrievalEmbeddings.contentHash, retrievalDocuments.contentHash))).where(and(eq(retrievalDocuments.workspaceId, workspaceId), eq(retrievalDocuments.projectId, input.projectId), input.missingEmbedding ? isNull(retrievalEmbeddings.documentId) : undefined)).orderBy(asc(retrievalDocuments.sourceType), asc(retrievalDocuments.sourceId), asc(retrievalDocuments.sourcePart)).limit(input.limit);
     return rows.map(({ document, embeddingDocumentId }) => ({ ...document, embeddingPresent: Boolean(embeddingDocumentId), embeddingProfile: profile, embeddingText: `${profile.documentPrefix}${document.embeddingText}` }));
+  }
+
+  async listDocumentsPage(workspaceId: string, user: AuthUser, input: ListRetrievalDocumentsInput, offset: number) {
+    await this.workspaces.requireMembership(workspaceId, user); await this.requireProject(workspaceId, input.projectId); const profile = await this.requireEmbeddingProfile(input.embeddingProfileKey);
+    const where = and(eq(retrievalDocuments.workspaceId, workspaceId), eq(retrievalDocuments.projectId, input.projectId), input.missingEmbedding ? isNull(retrievalEmbeddings.documentId) : undefined);
+    const totals = await this.database.db.select({ count: sql<number>`count(*)::int` }).from(retrievalDocuments).leftJoin(retrievalEmbeddings, and(eq(retrievalEmbeddings.documentId, retrievalDocuments.id), eq(retrievalEmbeddings.profileKey, profile.key), eq(retrievalEmbeddings.contentHash, retrievalDocuments.contentHash))).where(where);
+    const rows = await this.database.db.select({ document: retrievalDocuments, embeddingDocumentId: retrievalEmbeddings.documentId }).from(retrievalDocuments).leftJoin(retrievalEmbeddings, and(eq(retrievalEmbeddings.documentId, retrievalDocuments.id), eq(retrievalEmbeddings.profileKey, profile.key), eq(retrievalEmbeddings.contentHash, retrievalDocuments.contentHash))).where(where).orderBy(asc(retrievalDocuments.sourceType), asc(retrievalDocuments.sourceId), asc(retrievalDocuments.sourcePart)).limit(input.limit).offset(offset);
+    const items = rows.map(({ document, embeddingDocumentId }) => ({ ...document, embeddingPresent: Boolean(embeddingDocumentId), embeddingProfile: profile, embeddingText: `${profile.documentPrefix}${document.embeddingText}` })); const total = totals[0]?.count ?? 0;
+    return { items, total, nextOffset: offset + items.length < total ? offset + items.length : null };
   }
 
   async search(workspaceId: string, user: AuthUser, input: RetrievalSearchInput) {

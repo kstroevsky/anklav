@@ -29,6 +29,7 @@ export const listRetrievalDocumentsInput = z.object({
 export const listEmbeddingJobsInput = z.object({
   projectId: z.string().uuid(),
   status: z.enum(retrievalEmbeddingJobStatuses).optional(),
+  profileKey: z.string().trim().min(1).max(160).optional(),
   limit: z.number().int().min(1).max(500).default(100),
 });
 

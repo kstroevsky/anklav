@@ -128,6 +128,11 @@ export class WorkspaceController {
     return this.resources.setRepositoryAlias(workspaceId, user(request), repositoryId, parseBody(repositoryAliasInput, body));
   }
 
+  @Delete(':workspaceId/repositories/:repositoryId/aliases/:aliasId')
+  deleteRepositoryAlias(@Param('workspaceId') workspaceId: string, @Param('repositoryId') repositoryId: string, @Param('aliasId') aliasId: string, @Req() request: AuthedRequest) {
+    return this.resources.deleteRepositoryAlias(workspaceId, user(request), repositoryId, aliasId);
+  }
+
   @Get(':workspaceId/projects')
   projects(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Query() query: Record<string, string | undefined>) {
     return this.resources.listProjects(workspaceId, user(request), query);

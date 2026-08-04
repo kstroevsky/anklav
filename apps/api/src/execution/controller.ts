@@ -16,6 +16,19 @@ export class ExecutionController {
   @Get('tasks/:taskId/leases')
   listTaskLeases(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Req() request: AuthedRequest) { return this.execution.listTaskLeases(workspaceId, request.user, taskId); }
 
+  @Get('tasks/:taskId/operations')
+  getTaskOperations(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Req() request: AuthedRequest) { return this.execution.getTaskOperations(workspaceId, request.user, taskId); }
+
+  @Get('native-sessions')
+  listWorkspaceNativeSessions(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Query('offset') offset?: string, @Query('limit') limit?: string) {
+    const parsedOffset = offset === undefined ? 0 : Number(offset); const parsedLimit = limit === undefined ? 100 : Number(limit);
+    if (!Number.isSafeInteger(parsedOffset) || parsedOffset < 0 || !Number.isSafeInteger(parsedLimit)) throw new BadRequestException('offset and limit must be non-negative integers.');
+    return this.execution.listWorkspaceNativeSessions(workspaceId, request.user, parsedOffset, parsedLimit);
+  }
+
+  @Get('machines')
+  listMachines(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest) { return this.execution.listMachines(workspaceId, request.user); }
+
   @Post('tasks/:taskId/runs')
   startRun(@Param('workspaceId') workspaceId: string, @Param('taskId') taskId: string, @Req() request: AuthedRequest, @Body() body: unknown) { return this.execution.startRun(workspaceId, request.user, taskId, parseBody(startRunInput, body)); }
 

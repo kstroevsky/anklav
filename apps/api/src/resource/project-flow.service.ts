@@ -78,6 +78,14 @@ export abstract class ResourceProjectFlowService extends ResourceBase {
     return alias;
   }
 
+  async deleteRepositoryAlias(workspaceId: string, user: AuthUser, repositoryId: string, aliasId: string) {
+    await this.workspaces.requireMembership(workspaceId, user, 'admin');
+    await this.repository(workspaceId, repositoryId);
+    const [deleted] = await this.database.db.delete(repositoryLocalAliases).where(and(eq(repositoryLocalAliases.id, aliasId), eq(repositoryLocalAliases.repositoryId, repositoryId))).returning();
+    if (!deleted) throw new NotFoundException('Repository alias not found.');
+    return deleted;
+  }
+
   async linkProjectRepository(workspaceId: string, user: AuthUser, projectId: string, input: z.infer<typeof projectRepositoryInput>) {
     await this.workspaces.requireMembership(workspaceId, user, 'member');
     await this.project(workspaceId, projectId);

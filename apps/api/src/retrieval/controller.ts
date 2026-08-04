@@ -17,8 +17,13 @@ export class RetrievalController {
   listEmbeddingJobs(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Query() query: Record<string, string | undefined>) {
     const limit = query.limit === undefined ? undefined : Number(query.limit);
     if (limit !== undefined && !Number.isSafeInteger(limit)) throw new BadRequestException('limit must be an integer.');
-    return this.retrieval.listEmbeddingJobs(workspaceId, request.user, parseBody(listEmbeddingJobsInput, { projectId: query.projectId, status: query.status, limit }));
+    const input = parseBody(listEmbeddingJobsInput, { projectId: query.projectId, status: query.status, profileKey: query.profileKey, limit }); const offset = query.offset === undefined ? undefined : Number(query.offset);
+    if (offset !== undefined && (!Number.isSafeInteger(offset) || offset < 0)) throw new BadRequestException('offset must be a non-negative integer.');
+    return offset === undefined ? this.retrieval.listEmbeddingJobs(workspaceId, request.user, input) : this.retrieval.listEmbeddingJobsPage(workspaceId, request.user, input, offset);
   }
+
+  @Post('embedding-jobs/:jobId/retry')
+  retryEmbeddingJob(@Param('workspaceId') workspaceId: string, @Param('jobId') jobId: string, @Req() request: AuthedRequest) { return this.retrieval.retryEmbeddingJob(workspaceId, request.user, jobId); }
 
   @Post('search')
   @HttpCode(200)
@@ -35,7 +40,9 @@ export class RetrievalController {
   listDocuments(@Param('workspaceId') workspaceId: string, @Req() request: AuthedRequest, @Query() query: Record<string, string | undefined>) {
     const limit = query.limit === undefined ? undefined : Number(query.limit);
     if (limit !== undefined && !Number.isSafeInteger(limit)) throw new BadRequestException('limit must be an integer.');
-    return this.retrieval.listDocuments(workspaceId, request.user, parseBody(listRetrievalDocumentsInput, { projectId: query.projectId, embeddingProfileKey: query.embeddingProfileKey, missingEmbedding: query.missingEmbedding === 'true', limit }));
+    const input = parseBody(listRetrievalDocumentsInput, { projectId: query.projectId, embeddingProfileKey: query.embeddingProfileKey, missingEmbedding: query.missingEmbedding === 'true', limit }); const offset = query.offset === undefined ? undefined : Number(query.offset);
+    if (offset !== undefined && (!Number.isSafeInteger(offset) || offset < 0)) throw new BadRequestException('offset must be a non-negative integer.');
+    return offset === undefined ? this.retrieval.listDocuments(workspaceId, request.user, input) : this.retrieval.listDocumentsPage(workspaceId, request.user, input, offset);
   }
 
   @Get('traces/:traceId')
