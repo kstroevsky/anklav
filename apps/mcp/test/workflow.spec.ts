@@ -111,4 +111,46 @@ describe('cross-device handoff workflow', () => {
     expect(finished.status).toBe('completed');
     expect((await storeB.require()).runId).toBeUndefined();
   });
+
+  it('bulk imports only repository-scoped complete Codex sessions through archival runs', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'anklav-history-'));
+    const repository = join(root, 'repository');
+    const sessions = join(root, 'sessions');
+    await exec('git', ['init', '-b', 'main', repository]);
+    await exec('git', ['-C', repository, 'config', 'user.email', 'test@example.com']);
+    await exec('git', ['-C', repository, 'config', 'user.name', 'Anklav Test']);
+    await writeFile(join(repository, 'README.md'), 'history import\n');
+    await exec('git', ['-C', repository, 'add', 'README.md']);
+    await exec('git', ['-C', repository, 'commit', '-m', 'Initial']);
+    const git = await inspectGit(repository);
+    await mkdir(sessions, { recursive: true });
+    await writeFile(join(sessions, 'complete.jsonl'), [
+      { timestamp: '2026-08-01T10:00:00.000Z', type: 'session_meta', payload: { session_id: 'complete-session', cwd: repository, cli_version: '1.0.0', model_provider: 'openai' } },
+      { timestamp: '2026-08-01T10:00:01.000Z', type: 'event_msg', payload: { type: 'task_started', turn_id: 'turn-1' } },
+      { timestamp: '2026-08-01T10:00:02.000Z', type: 'response_item', payload: { type: 'message', id: 'message-1', role: 'assistant', content: [{ text: 'Use token=history-secret-value for the fixture.' }] } },
+      { timestamp: '2026-08-01T10:00:03.000Z', type: 'event_msg', payload: { type: 'task_complete', turn_id: 'turn-1' } },
+    ].map((entry) => JSON.stringify(entry)).join('\n'));
+    await writeFile(join(sessions, 'incomplete.jsonl'), JSON.stringify({ timestamp: '2026-08-02T10:00:00.000Z', type: 'session_meta', payload: { session_id: 'incomplete-session', cwd: repository } }));
+
+    const task = { id: 'task-1', identifier: 'PRJ-1', title: 'Imported Codex history' };
+    const client = new FakeClient((name, arguments_) => {
+      if (name === 'list_tasks') return { items: [{ task }] };
+      if (name === 'get_task') return task;
+      if (name === 'list_task_runs') return [];
+      if (name === 'start_run') return { id: 'run-1', nativeSession: { id: 'native-record-1' } };
+      if (name === 'claim_task_lease') return { lease: { id: 'lease-1' } };
+      if (['ingest_native_session', 'finish_run', 'release_task_lease'].includes(name)) return { id: arguments_.runId, status: arguments_.status };
+      throw new Error(`Unexpected tool ${name}`);
+    });
+    const store = new RepositoryStateStore(join(root, 'state.json'));
+    await store.write({ origin: 'http://localhost:8080', workspaceId: 'workspace-1', workspaceName: 'Workspace', projectId: 'project-1', projectName: 'Project', repositoryId: 'repository-1', repositoryFullName: git.repositoryFullName, machineIdentity: 'device-a' });
+    const workflow = new HandoffWorkflow(client, store, { ANKLAV_MACHINE_ID: 'device-a' }, repository);
+    const report = await workflow.importCodexHistory({ task: 'PRJ-1', sessionsRoot: sessions, limit: 10 });
+    expect(report).toMatchObject({ found: 2, selected: 2, imported: 1, skippedIncomplete: 1, skippedExisting: 0, failures: [] });
+    expect(client.calls.find((call) => call.name === 'start_run')?.arguments).toMatchObject({ modifiesCode: false, client: 'anklav-cli-import', taskId: task.id });
+    const itemBatch = client.calls.find((call) => call.name === 'ingest_native_session' && Array.isArray(call.arguments.items) && call.arguments.items.length > 0);
+    expect(JSON.stringify(itemBatch?.arguments.items)).toContain('[REDACTED]');
+    expect(JSON.stringify(itemBatch?.arguments.items)).not.toContain('history-secret-value');
+    expect(client.calls.filter((call) => call.name === 'finish_run' && call.arguments.status === 'completed')).toHaveLength(1);
+  });
 });

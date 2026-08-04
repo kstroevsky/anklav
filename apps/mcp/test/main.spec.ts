@@ -6,7 +6,7 @@ import { promisify } from 'node:util';
 import { describe, expect, it } from 'vitest';
 import { isMainModule, normalizeOrigin } from '../src/main.js';
 import { parseArguments } from '../src/cli/arguments.js';
-import { discoverCodexSession, parseCodexSession } from '../src/codex/session.js';
+import { discoverCodexSession, discoverCodexSessions, parseCodexSession } from '../src/codex/session.js';
 import { applyPatch, inspectGit, sha256 } from '../src/git/state.js';
 
 const exec = promisify(execFile);
@@ -46,6 +46,7 @@ describe('usable handoff CLI contracts', () => {
       { timestamp: '2026-08-02T10:00:02.000Z', type: 'response_item', payload: { type: 'message', id: 'm1', role: 'user', content: [{ type: 'input_text', text: 'use token=super-secret-value-now' }] } },
       { timestamp: '2026-08-02T10:00:03.000Z', type: 'response_item', payload: { type: 'function_call', id: 'c1', call_id: 'call-1', name: 'read_file', arguments: '{"path":"README.md","token":"quoted-secret-value"}' } },
       { timestamp: '2026-08-02T10:00:04.000Z', type: 'response_item', payload: { type: 'function_call_output', id: 'o1', call_id: 'call-1', output: 'done' } },
+      { timestamp: '2026-08-02T10:00:04.500Z', type: 'response_item', payload: { type: 'message', id: 'm2', role: 'assistant', content: [{ type: 'output_text', text: 'postgres://admin:database-password@db.local/app Bearer abcdefghijklmnopqrstuvwxyz -----BEGIN PRIVATE KEY-----\nprivate-material\n-----END PRIVATE KEY-----' }] } },
       { timestamp: '2026-08-02T10:00:05.000Z', type: 'event_msg', payload: { type: 'task_complete', turn_id: 'turn-1', completed_at: '2026-08-02T10:00:05.000Z' } },
     ];
     await writeFile(path, records.map((value) => JSON.stringify(value)).join('\n'));
@@ -58,6 +59,11 @@ describe('usable handoff CLI contracts', () => {
     expect(parsed.items[1]?.summary).toContain('"token":"[REDACTED]"');
     expect(parsed.items[1]?.summary).not.toContain('quoted-secret-value');
     expect(parsed.items[2]).toMatchObject({ relatedNativeItemId: 'call:call-1', relationshipType: 'tool_result_for' });
+    expect(parsed.items[3]?.summary).toContain('postgres://admin:[REDACTED]@db.local/app');
+    expect(parsed.items[3]?.summary).toContain('Bearer [REDACTED_TOKEN]');
+    expect(parsed.items[3]?.summary).toContain('[REDACTED_PRIVATE_KEY]');
+    expect(JSON.stringify(parsed.items)).not.toContain('database-password');
+    expect(JSON.stringify(parsed.items)).not.toContain('private-material');
   });
 
   it('accepts repository subdirectories but rejects a rollout rooted above the repository', async () => {
@@ -71,6 +77,7 @@ describe('usable handoff CLI contracts', () => {
     await writeFile(parentSession, JSON.stringify({ type: 'session_meta', payload: { session_id: 'parent', cwd: directory } }));
     await expect(discoverCodexSession(repository, { explicitPath: nestedSession })).resolves.toBe(nestedSession);
     await expect(discoverCodexSession(repository, { explicitPath: parentSession })).rejects.toThrow('belongs to');
+    await expect(discoverCodexSessions(repository, { root: directory })).resolves.toEqual([nestedSession]);
   });
 
   it('captures and restores tracked and untracked dirty work as one reproducible patch', async () => {

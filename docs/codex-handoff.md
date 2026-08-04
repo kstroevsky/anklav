@@ -10,7 +10,7 @@ This is Anklav's deliberately narrow usable workflow: keep a task, its normalize
 - the Git commit identity, branch, dependency-lock hashes, changed paths, and exact binary-capable patch for tracked, staged, and untracked files;
 - a generated Codex-oriented continuation document.
 
-Credentials, raw account identity, and arbitrary files outside the Git patch are not transferred. Common token and secret patterns are redacted from normalized session activity. A dirty Git patch is stored as access-controlled evidence because it must remain byte-exact to be restorable; treat the Anklav database and backups as sensitive developer infrastructure.
+Credentials, raw account identity, and arbitrary files outside the Git patch are not transferred. Token, private-key, authenticated-URL, authorization-header, cookie, and structured secret patterns are redacted from normalized session activity. Content that still matches a known credential shape after deterministic redaction is withheld rather than uploaded. A dirty Git patch is stored as access-controlled evidence because it must remain byte-exact to be restorable; treat the Anklav database and backups as sensitive developer infrastructure.
 
 ## One-time deployment setup
 
@@ -94,6 +94,19 @@ anklav sync --session /absolute/path/to/rollout.jsonl
 ```
 
 An explicit rollout is rejected when its repository path does not match the current checkout.
+
+## Import existing Codex history
+
+After binding the repository, existing completed rollouts can be attached to an explicit archival task. Preview the repository-scoped selection first:
+
+```bash
+anklav import-codex ANK-123 --dry-run
+anklav import-codex ANK-123 --since 2026-07-01 --limit 50
+```
+
+Discovery scans `$CODEX_HOME/sessions` by default. Use `--sessions-root /absolute/directory` for another read-only rollout directory. Only sessions whose recorded working directory is the current repository or one of its subdirectories are eligible. The importer skips incomplete and previously attached sessions by default; `--include-incomplete` is available for an intentional partial archive.
+
+Every imported rollout gets a completed, non-modifying archival run, an idempotent normalized-session ingestion, and a short outcome record. Raw JSONL files and account credentials are not uploaded. A parsing or ingestion failure is reported by file name, marks a started archival run failed, releases its read lease, and causes a non-zero CLI exit status.
 
 ## MVP boundaries
 

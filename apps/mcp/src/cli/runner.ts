@@ -2,7 +2,7 @@ import { runLogin } from '../commands/login.js';
 import { runLogout } from '../commands/logout.js';
 import { runStdio } from '../commands/stdio.js';
 import { normalizeOrigin } from '../config/origin.js';
-import { parseArguments, stringFlag } from './arguments.js';
+import { booleanFlag, parseArguments, stringFlag } from './arguments.js';
 import { inspectGit } from '../git/state.js';
 import { RepositoryStateStore } from '../config/repository-state.js';
 import { connectToolClient } from '../client/remote.js';
@@ -20,6 +20,7 @@ Repository workflow:
   anklav start "Task title" [--objective <text>] [--model <model>] [--session <rollout.jsonl>]
   anklav start --task TASK-ID [--model <model>] [--session <rollout.jsonl>]
   anklav sync [--session <rollout.jsonl>]
+  anklav import-codex TASK-ID [--sessions-root <dir>] [--since <iso-date>] [--limit <n>] [--include-incomplete] [--dry-run]
   anklav checkpoint [--summary <text>] [--next <text>] [--session <rollout.jsonl>]
   anklav continue [TASK-ID] [--model <model>] [--session <rollout.jsonl>]
   anklav status
@@ -38,7 +39,7 @@ export async function runCli(argv: readonly string[], environment = process.env)
     return runStdio(origin);
   }
 
-  if (!['bind', 'start', 'sync', 'checkpoint', 'continue', 'status', 'finish'].includes(command)) {
+  if (!['bind', 'start', 'sync', 'import-codex', 'checkpoint', 'continue', 'status', 'finish'].includes(command)) {
     console.error(USAGE);
     process.exitCode = 2;
     return;
@@ -60,6 +61,18 @@ export async function runCli(argv: readonly string[], environment = process.env)
     } else if (command === 'sync') {
       const result = await workflow.sync({ sessionPath: stringFlag(parsed, 'session') });
       console.log(result.session ? `Synchronized ${result.uploaded} new Codex item(s) from ${result.session.nativeSessionId}.` : 'No current Codex rollout was found for this repository.');
+    } else if (command === 'import-codex') {
+      const task = parsed.positionals[0];
+      if (!task) throw new Error('Usage: anklav import-codex TASK-ID [--sessions-root <dir>] [--since <iso-date>] [--limit <n>] [--include-incomplete] [--dry-run]');
+      const sinceValue = stringFlag(parsed, 'since');
+      const since = sinceValue ? new Date(sinceValue) : undefined;
+      if (since && Number.isNaN(since.getTime())) throw new Error('--since must be an ISO date or timestamp.');
+      const limitValue = stringFlag(parsed, 'limit');
+      const limit = limitValue === undefined ? undefined : Number(limitValue);
+      if (limit !== undefined && (!Number.isSafeInteger(limit) || limit < 1 || limit > 200)) throw new Error('--limit must be an integer from 1 to 200.');
+      const report = await workflow.importCodexHistory({ task, sessionsRoot: stringFlag(parsed, 'sessions-root'), since, limit, includeIncomplete: booleanFlag(parsed, 'include-incomplete'), dryRun: booleanFlag(parsed, 'dry-run') });
+      console.log(JSON.stringify(report, null, 2));
+      if (report.failures.length) process.exitCode = 1;
     } else if (command === 'checkpoint') {
       const checkpoint = await workflow.checkpoint({ summary: stringFlag(parsed, 'summary'), next: stringFlag(parsed, 'next'), sessionPath: stringFlag(parsed, 'session') });
       console.log(`Checkpoint ${checkpoint.sequence} saved. The task can now be continued from another computer.`);

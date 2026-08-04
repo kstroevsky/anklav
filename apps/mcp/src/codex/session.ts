@@ -3,7 +3,7 @@ import { readFile, readdir, realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 
-const PARSER_VERSION = 'anklav-codex-jsonl-v1';
+const PARSER_VERSION = 'anklav-codex-jsonl-v2';
 const MAX_SESSION_BYTES = 64 * 1024 * 1024;
 
 type JsonRecord = { timestamp?: string; type?: string; payload?: Record<string, unknown> };
@@ -12,7 +12,7 @@ type NativeItem = {
   nativeItemId: string; nativeTurnId: string | null; sequence: number;
   type: 'user_instruction' | 'assistant_message' | 'reasoning_summary' | 'tool_call' | 'tool_result' | 'patch' | 'compaction_marker' | 'interruption' | 'error' | 'usage_report' | 'other';
   role: 'user' | 'assistant' | 'system' | 'tool' | null; status: 'running' | 'complete' | 'interrupted' | 'failed';
-  summary: string; redactedContent: Record<string, unknown>; contentHash: string; redactionStatus: 'redacted';
+  summary: string; redactedContent: Record<string, unknown>; contentHash: string; redactionStatus: 'redacted' | 'withheld';
   correlationId: string | null; occurredAt: string; relatedNativeItemId?: string; relationshipType?: 'tool_result_for'; metadata: Record<string, unknown>;
 };
 
@@ -32,15 +32,21 @@ export type ParsedCodexSession = {
   parseErrors: Record<string, unknown>[];
 };
 
-export async function discoverCodexSession(repositoryRoot: string, options: { explicitPath?: string; since?: Date; environment?: NodeJS.ProcessEnv } = {}): Promise<string | undefined> {
+type DiscoveryOptions = { explicitPath?: string; root?: string; since?: Date; environment?: NodeJS.ProcessEnv };
+
+export async function discoverCodexSession(repositoryRoot: string, options: DiscoveryOptions = {}): Promise<string | undefined> {
   if (options.explicitPath) {
     const explicit = resolve(options.explicitPath);
     const metadata = await sessionMetadata(explicit);
     if (!await sameRepository(metadata.cwd, repositoryRoot)) throw new Error(`Codex session ${explicit} belongs to ${metadata.cwd}, not ${repositoryRoot}.`);
     return explicit;
   }
+  return (await discoverCodexSessions(repositoryRoot, options))[0];
+}
+
+export async function discoverCodexSessions(repositoryRoot: string, options: Omit<DiscoveryOptions, 'explicitPath'> = {}): Promise<string[]> {
   const environment = options.environment ?? process.env;
-  const root = join(environment.CODEX_HOME ?? join(homedir(), '.codex'), 'sessions');
+  const root = options.root ? resolve(options.root) : join(environment.CODEX_HOME ?? join(homedir(), '.codex'), 'sessions');
   const files = await jsonlFiles(root).catch((error: unknown) => {
     if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT') return [];
     throw error;
@@ -52,7 +58,7 @@ export async function discoverCodexSession(repositoryRoot: string, options: { ex
     const metadata = await sessionMetadata(path).catch(() => null);
     if (metadata && await sameRepository(metadata.cwd, repositoryRoot)) candidates.push({ path, modified: details.mtimeMs });
   }
-  return candidates.sort((left, right) => right.modified - left.modified)[0]?.path;
+  return candidates.sort((left, right) => right.modified - left.modified || left.path.localeCompare(right.path)).map((candidate) => candidate.path);
 }
 
 export async function parseCodexSession(path: string): Promise<ParsedCodexSession> {
@@ -191,6 +197,11 @@ function normalize(record: JsonRecord, line: number, turnId: string | null, call
     content = { reason: summary }; nativeId = `abort:${string(payload.turn_id) || line}`; status = 'interrupted';
   } else return undefined;
 
+  const unsafe = containsSensitiveRemainder(`${summary}\n${JSON.stringify(content)}`);
+  if (unsafe) {
+    summary = '[WITHHELD_SENSITIVE_CONTENT]';
+    content = { reason: 'Sensitive content remained after deterministic redaction.' };
+  }
   const immutable = { type, role, status, summary, content, occurredAt, turnId, correlationId };
   return {
     nativeItemId: nativeId,
@@ -202,7 +213,7 @@ function normalize(record: JsonRecord, line: number, turnId: string | null, call
     summary,
     redactedContent: content,
     contentHash: createHash('sha256').update(JSON.stringify(immutable)).digest('hex'),
-    redactionStatus: 'redacted',
+    redactionStatus: unsafe ? 'withheld' : 'redacted',
     correlationId,
     occurredAt,
     ...(relatedNativeItemId ? { relatedNativeItemId, relationshipType: 'tool_result_for' as const } : {}),
@@ -247,13 +258,26 @@ function compact(value: unknown): string {
 
 function redact(value: string): string {
   return value
+    .replace(/-----BEGIN(?: [A-Z0-9]+)? PRIVATE KEY-----[\s\S]*?-----END(?: [A-Z0-9]+)? PRIVATE KEY-----/g, '[REDACTED_PRIVATE_KEY]')
     .replace(/\b(sk-(?:proj-)?[A-Za-z0-9_-]{16,})\b/g, '[REDACTED_OPENAI_KEY]')
     .replace(/\b(gh[opsu]_[A-Za-z0-9]{20,})\b/g, '[REDACTED_GITHUB_TOKEN]')
     .replace(/\b(AKIA[0-9A-Z]{16})\b/g, '[REDACTED_AWS_KEY]')
+    .replace(/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g, '[REDACTED_JWT]')
     .replace(/\b(Bearer\s+)[A-Za-z0-9._~+\/-]{16,}/gi, '$1[REDACTED_TOKEN]')
-    .replace(/("(?:password|secret|token|api[_-]?key)"\s*:\s*")[^"]*(")/gi, '$1[REDACTED]$2')
-    .replace(/('(?:password|secret|token|api[_-]?key)'\s*:\s*')[^']*(')/gi, '$1[REDACTED]$2')
-    .replace(/((?:password|secret|token|api[_-]?key)\s*[=:]\s*)[^\s,;"']+/gi, '$1[REDACTED]');
+    .replace(/\b(Basic\s+)[A-Za-z0-9+/=]{8,}/gi, '$1[REDACTED_CREDENTIALS]')
+    .replace(/\b([a-z][a-z0-9+.-]*:\/\/[^\s:/@]+:)[^\s/@]+@/gi, '$1[REDACTED]@')
+    .replace(/("(?:password|passphrase|secret|token|api[_-]?key|private[_-]?key|client[_-]?secret|access[_-]?token|refresh[_-]?token|authorization|cookie|session(?:id|_id)?)"\s*:\s*")[^"]*(")/gi, '$1[REDACTED]$2')
+    .replace(/('(?:password|passphrase|secret|token|api[_-]?key|private[_-]?key|client[_-]?secret|access[_-]?token|refresh[_-]?token|authorization|cookie|session(?:id|_id)?)'\s*:\s*')[^']*(')/gi, '$1[REDACTED]$2')
+    .replace(/((?:password|passphrase|secret|token|api[_-]?key|private[_-]?key|client[_-]?secret|access[_-]?token|refresh[_-]?token|authorization|cookie|session(?:id|_id)?)\s*[=:]\s*)[^\s,;"']+/gi, '$1[REDACTED]')
+    .replace(/\b((?:set-)?cookie\s*:\s*[^=;\s]+)=([^;\s]+)/gi, '$1=[REDACTED]');
+}
+
+function containsSensitiveRemainder(value: string): boolean {
+  return /-----BEGIN(?: [A-Z0-9]+)? PRIVATE KEY-----/i.test(value)
+    || /\bBearer\s+(?!\[REDACTED)[A-Za-z0-9._~+\/-]{16,}/i.test(value)
+    || /\bBasic\s+(?!\[REDACTED)[A-Za-z0-9+/=]{8,}/i.test(value)
+    || /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/.test(value)
+    || /\b[a-z][a-z0-9+.-]*:\/\/[^\s:/@]+:(?!\[REDACTED\]@)[^\s/@]+@/i.test(value);
 }
 
 function string(value: unknown): string { return typeof value === 'string' ? value : ''; }

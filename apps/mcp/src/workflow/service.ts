@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { basename, dirname } from 'node:path';
 import { writeFile } from 'node:fs/promises';
 import type { ToolClient } from '../client/remote.js';
-import { discoverCodexSession, parseCodexSession, type ParsedCodexSession } from '../codex/session.js';
+import { discoverCodexSession, discoverCodexSessions, parseCodexSession, type ParsedCodexSession } from '../codex/session.js';
 import { RepositoryStateStore, type RepositoryState } from '../config/repository-state.js';
 import { applyPatch, commitsSince, gitSlice, inspectGit, isAncestor, sha256, type LocalGitState } from '../git/state.js';
 import { machineIdentity } from '../platform/machine.js';
@@ -104,6 +104,50 @@ export class HandoffWorkflow {
     return this.syncWith(state, parsed);
   }
 
+  async importCodexHistory(input: { task: string; sessionsRoot?: string; since?: Date; limit?: number; includeIncomplete?: boolean; dryRun?: boolean }) {
+    const state = await this.store.require();
+    const git = await inspectGit(this.cwd);
+    assertRepository(state, git);
+    const task = await this.resolveTask(state, input.task);
+    const discovered = await discoverCodexSessions(git.root, { root: input.sessionsRoot, since: input.since, environment: this.environment });
+    const selected = discovered.slice(0, input.limit ?? 25).reverse();
+    const existingRuns = array(await this.client.call<RecordValue[]>('list_task_runs', { workspaceId: state.workspaceId, taskId: task.id }));
+    const existingNativeIds = new Set(existingRuns.flatMap((run) => array(run.nativeSessions).map((session) => session.nativeSessionId)));
+    const report = { found: discovered.length, selected: selected.length, imported: 0, skippedExisting: 0, skippedIncomplete: 0, previewed: [] as RecordValue[], failures: [] as RecordValue[] };
+
+    for (const path of selected) {
+      let parsed: ParsedCodexSession;
+      try { parsed = await parseCodexSession(path); }
+      catch (error) { report.failures.push({ fileName: basename(path), message: error instanceof Error ? error.message : 'Codex session parsing failed.' }); continue; }
+      if (existingNativeIds.has(parsed.nativeSessionId)) { report.skippedExisting += 1; continue; }
+      if (!parsed.complete && !input.includeIncomplete) { report.skippedIncomplete += 1; continue; }
+      const preview = { fileName: basename(path), nativeSessionId: parsed.nativeSessionId, complete: parsed.complete, turns: parsed.turns.length, items: parsed.items.length, withheldItems: parsed.items.filter((item) => item.redactionStatus === 'withheld').length };
+      if (input.dryRun) { report.previewed.push(preview); continue; }
+
+      let run: RecordValue | undefined;
+      let leaseId: string | undefined;
+      try {
+        run = await this.client.call<RecordValue>('start_run', {
+          workspaceId: state.workspaceId, taskId: task.id, provider: 'codex', client: 'anklav-cli-import', agentType: 'archival_import', model: null,
+          machineIdentity: state.machineIdentity, modifiesCode: false, permissions: { source: 'local_codex_history', repositoryScoped: true }, nativeSession: nativeSessionInput(parsed, git.root),
+        });
+        if (!run.nativeSession?.id) throw new Error('Anklav did not attach the imported native session to its archival run.');
+        const lease = await this.client.call<RecordValue>('claim_task_lease', { workspaceId: state.workspaceId, runId: run.id, activity: `Import redacted Codex session ${parsed.nativeSessionId}`, writeAccess: false, exclusive: false, pathScope: [], ttlSeconds: 3600 });
+        leaseId = lease.lease?.id;
+        await this.uploadParsedSession(state, run.nativeSession.id, parsed);
+        await this.client.call('finish_run', { workspaceId: state.workspaceId, runId: run.id, status: 'completed', outcomeSummary: `Imported redacted Codex session ${parsed.nativeSessionId} with ${parsed.items.length} normalized item(s).`, tokenUsage: {} });
+        if (leaseId) await this.client.call('release_task_lease', { workspaceId: state.workspaceId, leaseId });
+        existingNativeIds.add(parsed.nativeSessionId);
+        report.imported += 1;
+      } catch (error) {
+        if (run?.id) await this.client.call('finish_run', { workspaceId: state.workspaceId, runId: run.id, status: 'failed', outcomeSummary: 'Codex history import failed before completion.', tokenUsage: {} }).catch(() => undefined);
+        if (leaseId) await this.client.call('release_task_lease', { workspaceId: state.workspaceId, leaseId }).catch(() => undefined);
+        report.failures.push({ fileName: basename(path), nativeSessionId: parsed.nativeSessionId, message: error instanceof Error ? error.message : 'Codex session import failed.' });
+      }
+    }
+    return report;
+  }
+
   async checkpoint(input: { summary?: string; next?: string; sessionPath?: string }): Promise<RecordValue> {
     let state = await this.store.require();
     if (!state.runId || !state.taskId) throw new Error('No active Anklav run. Use anklav start or anklav continue first.');
@@ -202,51 +246,49 @@ export class HandoffWorkflow {
     let sessionRecordId = state.nativeSessionRecordId;
     if (!sessionRecordId) {
       const attached = await this.client.call<RecordValue>('attach_native_session', { workspaceId: state.workspaceId, runId: state.runId, ...nativeSessionInput(parsed, (await inspectGit(this.cwd)).root) });
+      if (typeof attached.id !== 'string' || !attached.id) throw new Error('Anklav did not return an attached native session identifier.');
       sessionRecordId = attached.id;
       state = { ...state, nativeSessionRecordId: attached.id, nativeSessionNativeId: parsed.nativeSessionId, nativeSessionPath: parsed.path, nativeSessionCursor: 0 };
       await this.store.write(state);
     } else if (state.nativeSessionNativeId !== parsed.nativeSessionId) throw new Error('The active run is already attached to a different Codex session. Finish it or pass the original --session path.');
-    let cursor = state.nativeSessionCursor ?? 0;
+    if (!sessionRecordId) throw new Error('The active run has no attached native session identifier.');
+    const result = await this.uploadParsedSession(state, sessionRecordId, parsed, state.nativeSessionCursor ?? 0, state.nativeSessionRevision, async (cursor, revision) => {
+      state = { ...state, nativeSessionRecordId: sessionRecordId, nativeSessionNativeId: parsed.nativeSessionId, nativeSessionPath: parsed.path, nativeSessionCursor: cursor, ...(revision ? { nativeSessionRevision: revision } : {}) };
+      await this.store.write(state);
+    });
+    return { session: parsed, uploaded: result.uploaded };
+  }
+
+  private async uploadParsedSession(state: RepositoryState, sessionRecordId: string, parsed: ParsedCodexSession, initialCursor = 0, previousRevision?: string, progress?: (cursor: number, revision?: string) => Promise<void>) {
+    const repositoryRoot = (await inspectGit(this.cwd)).root;
+    let cursor = initialCursor;
     let uploaded = 0;
     while (cursor < parsed.items.length) {
       const items = parsed.items.slice(cursor, cursor + 500);
       const next = cursor + items.length;
       const revisionHash = sha256(items.map((item) => item.contentHash).join(':'));
       await this.client.call('ingest_native_session', {
-        workspaceId: state.workspaceId,
-        nativeSessionId: sessionRecordId,
-        idempotencyKey: `codex:${parsed.nativeSessionId}:${cursor}:${next}:${revisionHash}`,
-        sourceRevision: `${cursor}-${next}-${revisionHash}`,
-        parserVersion: parsed.parserVersion,
-        fromCursor: String(cursor), toCursor: String(next), complete: false,
-        manifest: { source: 'codex_rollout_jsonl', fileName: basename(parsed.path), normalizedItemCount: parsed.items.length },
-        pathMappings: { [parsed.cwd]: (await inspectGit(this.cwd)).root },
-        parseErrors: parsed.parseErrors,
-        turns: parsed.turns,
-        items,
+        workspaceId: state.workspaceId, nativeSessionId: sessionRecordId,
+        idempotencyKey: `codex:${parsed.nativeSessionId}:${cursor}:${next}:${revisionHash}`, sourceRevision: `${cursor}-${next}-${revisionHash}`,
+        parserVersion: parsed.parserVersion, fromCursor: String(cursor), toCursor: String(next), complete: false,
+        manifest: { source: 'codex_rollout_jsonl', fileName: basename(parsed.path), normalizedItemCount: parsed.items.length }, pathMappings: { [parsed.cwd]: repositoryRoot },
+        parseErrors: parsed.parseErrors, turns: parsed.turns, items,
       });
-      cursor = next; uploaded += items.length;
-      state = { ...state, nativeSessionRecordId: sessionRecordId, nativeSessionNativeId: parsed.nativeSessionId, nativeSessionPath: parsed.path, nativeSessionCursor: cursor };
-      await this.store.write(state);
+      cursor = next;
+      uploaded += items.length;
+      await progress?.(cursor);
     }
-    if (state.nativeSessionRevision !== parsed.sourceRevision) {
+    if (previousRevision !== parsed.sourceRevision) {
       await this.client.call('ingest_native_session', {
-        workspaceId: state.workspaceId,
-        nativeSessionId: sessionRecordId,
-        idempotencyKey: `codex:${parsed.nativeSessionId}:snapshot:${parsed.sourceRevision}`,
-        sourceRevision: `snapshot-${parsed.sourceRevision}`,
-        parserVersion: parsed.parserVersion,
-        fromCursor: String(cursor), toCursor: String(cursor), complete: parsed.complete,
-        manifest: { source: 'codex_rollout_jsonl', fileName: basename(parsed.path), normalizedItemCount: parsed.items.length },
-        pathMappings: { [parsed.cwd]: (await inspectGit(this.cwd)).root },
-        parseErrors: parsed.parseErrors,
-        turns: parsed.turns,
-        items: [],
+        workspaceId: state.workspaceId, nativeSessionId: sessionRecordId,
+        idempotencyKey: `codex:${parsed.nativeSessionId}:snapshot:${parsed.sourceRevision}`, sourceRevision: `snapshot-${parsed.sourceRevision}`,
+        parserVersion: parsed.parserVersion, fromCursor: String(cursor), toCursor: String(cursor), complete: parsed.complete,
+        manifest: { source: 'codex_rollout_jsonl', fileName: basename(parsed.path), normalizedItemCount: parsed.items.length }, pathMappings: { [parsed.cwd]: repositoryRoot },
+        parseErrors: parsed.parseErrors, turns: parsed.turns, items: [],
       });
-      state = { ...state, nativeSessionRevision: parsed.sourceRevision };
-      await this.store.write(state);
+      await progress?.(cursor, parsed.sourceRevision);
     }
-    return { session: parsed, uploaded };
+    return { uploaded, cursor, sourceRevision: parsed.sourceRevision };
   }
 
   private async capturePatch(state: RepositoryState, taskId: string, runId: string | undefined, git: LocalGitState): Promise<{ evidenceArtifactId: string; hash: string }> {
