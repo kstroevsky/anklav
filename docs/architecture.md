@@ -152,6 +152,8 @@ This boundary requires a public HTTPS `PUBLIC_BASE_URL`, because GitHub must rea
 
 Docker Compose is enough. It runs all stateful services on the one machine and stores PostgreSQL data in the named `anklav-postgres` volume. Opening `http://localhost:8080` is appropriate for a local installation.
 
+The bundled database image is built from PostgreSQL 18.4 with pgvector 0.8.6. PostgreSQL major-version upgrades require `pg_upgrade` or a dump/restore for retained databases; changing the image is not an in-place major upgrade. A disposable development database can instead be recreated with `docker compose down --volumes` before starting the new image. PostgreSQL 18 stores its cluster below `/var/lib/postgresql/18/docker`, so Compose mounts the documented `/var/lib/postgresql` parent directory.
+
 If the machine is on a shared network, remember that the current port mapping is `0.0.0.0:8080`. Restrict it with a Compose override or host firewall if it should be reachable only from the machine itself.
 
 ### Public production use
@@ -169,7 +171,7 @@ Production responsibilities belong to the operator:
 
 ## Scope and Boundaries
 
-The architecture is deliberately small: one database and one API process coordinate the core rather than a microservice fleet. The PostgreSQL image includes pgvector 0.8.1; derived full-text/vector retrieval runs in PostgreSQL and accepts content-hash-guarded embeddings from an external worker. The current application does not yet generate embeddings itself, provide a commit-aware code-symbol index, perform broad GraphRAG-style synthesis, automatically generate tasks, run generic workflow automation, provide analytics, operate distributed workers, or mirror repositories generally.
+The architecture is deliberately small: one database and one API process coordinate the core rather than a microservice fleet. The PostgreSQL 18.4 image includes pgvector 0.8.6; derived full-text/vector retrieval runs in PostgreSQL and accepts content-hash-guarded embeddings from an external worker. The current application does not yet generate embeddings itself, provide a commit-aware code-symbol index, perform broad GraphRAG-style synthesis, automatically generate tasks, run generic workflow automation, provide analytics, operate distributed workers, or mirror repositories generally.
 
 The optional MCP and GitHub paths are explicit extensions with their own permission and configuration boundaries. Native-session ingestion preserves provider history for inspection and continuation; it does not recreate, edit, or live-synchronize provider sessions. Raw agent output never becomes canonical project knowledge automatically, and these integrations do not replace normal task, flow, human-review, or activity-history rules.
 

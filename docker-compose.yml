@@ -1,6 +1,13 @@
 services:
   postgres:
-    image: pgvector/pgvector:0.8.1-pg17-bookworm
+    build:
+      context: .
+      dockerfile: docker/postgres/Dockerfile
+      args:
+        PGVECTOR_VERSION: 0.8.6
+        PGVECTOR_REVISION: 8ee86c96f0fd72390f890aa8a336fda6d3ab4c6c
+        PG_MAJOR: 18
+    image: anklav-postgres:18.4-pgvector0.8.6
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-anklav}
       POSTGRES_USER: ${POSTGRES_USER:-anklav}
@@ -11,7 +18,7 @@ services:
       timeout: 5s
       retries: 20
     volumes:
-      - anklav-postgres:/var/lib/postgresql/data
+      - anklav-postgres:/var/lib/postgresql
 
   migrate:
     build:

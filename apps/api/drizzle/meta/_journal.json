@@ -120,6 +120,13 @@
       "when": 1785704000000,
       "tag": "0016_fearless_shape",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1785845789136,
+      "tag": "0017_upgrade_vector_086",
+      "breakpoints": true
     }
   ]
 }
