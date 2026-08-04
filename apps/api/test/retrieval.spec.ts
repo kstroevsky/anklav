@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { embeddingInput, retrievalSearchInput } from '../src/retrieval/inputs';
+import { buildContextualPrefix, buildEmbeddingText, semanticUnits } from '../src/retrieval/document';
+import { retrievalSearchInput } from '../src/retrieval/inputs';
+import { DEFAULT_EMBEDDING_MODEL_REVISION } from '../src/retrieval/profiles';
 import { classifyRetrievalIntent, hybridScore } from '../src/retrieval/ranking';
 
 describe('hybrid retrieval contracts', () => {
@@ -9,11 +11,27 @@ describe('hybrid retrieval contracts', () => {
     expect(retrievalSearchInput.safeParse({ ...base, projectId: '0198babc-1234-7000-8000-000000000002' }).success).toBe(true);
   });
 
-  it('accepts only the configured embedding dimension and finite values', () => {
-    const valid = { model: 'nomic-embed-text-v1.5', contentHash: 'a'.repeat(64), embedding: Array.from({ length: 768 }, () => 0.01) };
-    expect(embeddingInput.safeParse(valid).success).toBe(true);
-    expect(embeddingInput.safeParse({ ...valid, embedding: [0.01] }).success).toBe(false);
-    expect(embeddingInput.safeParse({ ...valid, embedding: [...valid.embedding.slice(0, -1), Number.NaN] }).success).toBe(false);
+  it('requires semantic searches to name a server-side profile without treating 768 as a universal input fact', () => {
+    const base = { query: 'session guard', projectId: '0198babc-1234-7000-8000-000000000002' };
+    expect(retrievalSearchInput.safeParse({ ...base, embeddingProfileKey: 'nomic-v2-768' }).success).toBe(false);
+    expect(retrievalSearchInput.safeParse({ ...base, queryEmbedding: [0.01] }).success).toBe(false);
+    expect(retrievalSearchInput.safeParse({ ...base, embeddingProfileKey: 'future-profile', queryEmbedding: [0.01] }).success).toBe(true);
+    expect(retrievalSearchInput.safeParse({ ...base, embeddingProfileKey: 'future-profile', queryEmbedding: [Number.NaN] }).success).toBe(false);
+    expect(DEFAULT_EMBEDDING_MODEL_REVISION).toMatch(/^[a-f0-9]{40}$/);
+  });
+
+  it('builds bounded, contextualized, redacted semantic units', () => {
+    const parts = semanticUnits(`${'a'.repeat(1_000)}\n\n${'b'.repeat(1_000)}`);
+    expect(parts).toHaveLength(2);
+    expect(parts.every((part) => part.length <= 1_400)).toBe(true);
+    expect(semanticUnits('x'.repeat(2_000)).map((part) => part.length)).toEqual([1_400, 600]);
+    const prefix = buildContextualPrefix({ project: 'Anklav', task: 'ANK-42', sourceType: 'decision', sourceId: 'decision-1', sourcePart: 0, status: 'current', recordedAt: new Date('2026-08-04T00:00:00.000Z'), validFromAt: new Date('2026-08-01T00:00:00.000Z'), validUntilAt: null, authorityBasisPoints: 9_500, sensitivity: 'task', metadata: { effectiveRepository: 'anklav', effectiveFromCommit: 'abc1234', classification: 'fact', provider: 'codex' } });
+    expect(prefix).toContain('git:abc1234..open');
+    expect(prefix).toContain('authority:0.9500');
+    expect(prefix).toContain('sensitivity:task');
+    const embeddingText = buildEmbeddingText(prefix, 'Credential example', 'api_key=super-secret-value');
+    expect(embeddingText).toContain('api_key=[REDACTED]');
+    expect(embeddingText).not.toContain('super-secret-value');
   });
 
   it('classifies exact and historical intent before broad semantic retrieval', () => {

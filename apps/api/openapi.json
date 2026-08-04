@@ -4131,6 +4131,29 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceId}/retrieval/embedding-profiles": {
+      "get": {
+        "operationId": "RetrievalController_listEmbeddingProfiles",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Retrieval"
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceId}/retrieval/search": {
       "post": {
         "operationId": "RetrievalController_search",
@@ -4183,37 +4206,6 @@
         "parameters": [
           {
             "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Retrieval"
-        ]
-      }
-    },
-    "/api/v1/workspaces/{workspaceId}/retrieval/documents/{documentId}/embedding": {
-      "put": {
-        "operationId": "RetrievalController_putEmbedding",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "documentId",
             "required": true,
             "in": "path",
             "schema": {

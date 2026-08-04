@@ -1,16 +1,18 @@
 import { createHash } from 'node:crypto';
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { and, asc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { AuthUser } from '../auth';
 import { DatabaseService } from '../db/database.service';
-import { agentRuns, evidenceArtifacts, knowledgeArtifactRevisions, knowledgeArtifacts, memoryClaims, nativeSessionItems, nativeSessions, projectDecisions, projects, retrievalDocuments, retrievalEmbeddings, retrievalTraces, runCheckpoints, taskRelations, tasks } from '../db/schema';
+import { agentRuns, embeddingProfiles, evidenceArtifacts, knowledgeArtifactRevisions, knowledgeArtifacts, memoryClaims, nativeSessionItems, nativeSessions, projectDecisions, projects, retrievalDocuments, retrievalEmbeddings, retrievalTraces, runCheckpoints, taskRelations, tasks } from '../db/schema';
 import { WorkspaceService } from '../workspace.service';
-import type { EmbeddingInput, ListRetrievalDocumentsInput, RefreshRetrievalInput, RetrievalIntent, RetrievalSearchInput } from './inputs';
+import { buildContextualPrefix, buildEmbeddingText, semanticUnits } from './document';
+import type { ListRetrievalDocumentsInput, RefreshRetrievalInput, RetrievalIntent, RetrievalSearchInput } from './inputs';
+import { EMBEDDING_STORAGE_LANE } from './profiles';
 import { classifyRetrievalIntent, hybridScore, retrievalWeights } from './ranking';
 
 type DerivedDocument = {
-  workspaceId: string; projectId: string; taskId: string | null; runId: string | null; sourceType: string; sourceId: string;
-  title: string; content: string; contextualPrefix: string; searchText: string; contentHash: string; authorityBasisPoints: number;
+  workspaceId: string; projectId: string; taskId: string | null; runId: string | null; sourceType: string; sourceId: string; sourcePart: number;
+  title: string; content: string; contextualPrefix: string; searchText: string; embeddingText: string; contentHash: string; authorityBasisPoints: number;
   sensitivity: string; status: string; validFromAt: Date | null; validUntilAt: Date | null; sourceRecordedAt: Date; metadata: Record<string, unknown>;
 };
 
@@ -19,6 +21,11 @@ type CandidateRow = typeof retrievalDocuments.$inferSelect & { lexical_score: nu
 @Injectable()
 export class RetrievalService {
   constructor(private readonly database: DatabaseService, private readonly workspaces: WorkspaceService) {}
+
+  async listEmbeddingProfiles(workspaceId: string, user: AuthUser) {
+    await this.workspaces.requireMembership(workspaceId, user);
+    return this.database.db.select().from(embeddingProfiles).where(eq(embeddingProfiles.active, true)).orderBy(asc(embeddingProfiles.key));
+  }
 
   async refresh(workspaceId: string, user: AuthUser, input: RefreshRetrievalInput) {
     await this.workspaces.requireMembership(workspaceId, user);
@@ -37,11 +44,17 @@ export class RetrievalService {
     const latestCheckpointByRun = new Map<string, number>();
     for (const { checkpoint } of checkpointRows) latestCheckpointByRun.set(checkpoint.runId, Math.max(latestCheckpointByRun.get(checkpoint.runId) ?? 0, checkpoint.sequence));
     const documents: DerivedDocument[] = [];
-    const add = (values: Omit<DerivedDocument, 'workspaceId' | 'projectId' | 'contextualPrefix' | 'searchText' | 'contentHash' | 'sensitivity'>) => {
+    const add = (values: Omit<DerivedDocument, 'workspaceId' | 'projectId' | 'sourcePart' | 'contextualPrefix' | 'searchText' | 'embeddingText' | 'contentHash' | 'sensitivity'>) => {
       const task = values.taskId ? taskMap.get(values.taskId) : null;
-      const contextualPrefix = [`project:${project.name}`, task ? `task:${task.identifier}` : '', `source:${values.sourceType}`, `status:${values.status}`, `recorded:${values.sourceRecordedAt.toISOString()}`].filter(Boolean).join(' | ');
-      const searchText = `${contextualPrefix}\n${values.title}\n${values.content}`;
-      documents.push({ ...values, workspaceId, projectId: project.id, contextualPrefix, searchText, contentHash: sha256(searchText), sensitivity: values.taskId ? 'task' : 'project' });
+      const sensitivity = values.taskId ? 'task' : 'project';
+      const parts = semanticUnits(values.content);
+      for (const [sourcePart, content] of parts.entries()) {
+        const metadata = { repositoryReference: project.repositoryReference, ...values.metadata, semanticUnit: { part: sourcePart, count: parts.length } };
+        const contextualPrefix = buildContextualPrefix({ project: project.name, task: task?.identifier, sourceType: values.sourceType, sourceId: values.sourceId, sourcePart, status: values.status, recordedAt: values.sourceRecordedAt, validFromAt: values.validFromAt, validUntilAt: values.validUntilAt, authorityBasisPoints: values.authorityBasisPoints, sensitivity, metadata });
+        const searchText = `${contextualPrefix}\n${values.title}\n${content}`;
+        const embeddingText = buildEmbeddingText(contextualPrefix, values.title, content);
+        documents.push({ ...values, content, metadata, workspaceId, projectId: project.id, sourcePart, contextualPrefix, searchText, embeddingText, contentHash: sha256(embeddingText), sensitivity });
+      }
     };
 
     add({ taskId: null, runId: null, sourceType: 'project', sourceId: project.id, title: project.name, content: text([project.description, project.currentFocus, project.currentStateSummary, project.repositoryReference]), authorityBasisPoints: 9_500, status: 'current', validFromAt: project.createdAt, validUntilAt: null, sourceRecordedAt: project.updatedAt, metadata: { issueKey: project.issueKey } });
@@ -57,7 +70,7 @@ export class RetrievalService {
     return this.database.db.transaction(async (tx) => {
       const storedIds: string[] = [];
       for (const document of documents) {
-        const [stored] = await tx.insert(retrievalDocuments).values(document).onConflictDoUpdate({ target: [retrievalDocuments.workspaceId, retrievalDocuments.sourceType, retrievalDocuments.sourceId], set: { projectId: document.projectId, taskId: document.taskId, runId: document.runId, title: document.title, content: document.content, contextualPrefix: document.contextualPrefix, searchText: document.searchText, contentHash: document.contentHash, authorityBasisPoints: document.authorityBasisPoints, sensitivity: document.sensitivity, status: document.status, validFromAt: document.validFromAt, validUntilAt: document.validUntilAt, sourceRecordedAt: document.sourceRecordedAt, metadata: document.metadata, indexedAt: new Date(), updatedAt: new Date() } }).returning({ id: retrievalDocuments.id });
+        const [stored] = await tx.insert(retrievalDocuments).values(document).onConflictDoUpdate({ target: [retrievalDocuments.workspaceId, retrievalDocuments.sourceType, retrievalDocuments.sourceId, retrievalDocuments.sourcePart], set: { projectId: document.projectId, taskId: document.taskId, runId: document.runId, title: document.title, content: document.content, contextualPrefix: document.contextualPrefix, searchText: document.searchText, embeddingText: document.embeddingText, contentHash: document.contentHash, authorityBasisPoints: document.authorityBasisPoints, sensitivity: document.sensitivity, status: document.status, validFromAt: document.validFromAt, validUntilAt: document.validUntilAt, sourceRecordedAt: document.sourceRecordedAt, metadata: document.metadata, indexedAt: new Date(), updatedAt: new Date() } }).returning({ id: retrievalDocuments.id });
         storedIds.push(stored!.id);
       }
       const existing = await tx.select({ id: retrievalDocuments.id }).from(retrievalDocuments).where(and(eq(retrievalDocuments.workspaceId, workspaceId), eq(retrievalDocuments.projectId, project.id)));
@@ -73,17 +86,9 @@ export class RetrievalService {
   async listDocuments(workspaceId: string, user: AuthUser, input: ListRetrievalDocumentsInput) {
     await this.workspaces.requireMembership(workspaceId, user);
     await this.requireProject(workspaceId, input.projectId);
-    const rows = await this.database.db.select({ document: retrievalDocuments, embeddingDocumentId: retrievalEmbeddings.documentId }).from(retrievalDocuments).leftJoin(retrievalEmbeddings, and(eq(retrievalEmbeddings.documentId, retrievalDocuments.id), input.embeddingModel ? eq(retrievalEmbeddings.model, input.embeddingModel) : undefined, eq(retrievalEmbeddings.contentHash, retrievalDocuments.contentHash))).where(and(eq(retrievalDocuments.workspaceId, workspaceId), eq(retrievalDocuments.projectId, input.projectId), input.missingEmbedding ? isNull(retrievalEmbeddings.documentId) : undefined)).orderBy(asc(retrievalDocuments.sourceType), asc(retrievalDocuments.sourceId)).limit(input.limit);
-    return rows.map(({ document, embeddingDocumentId }) => ({ ...document, embeddingPresent: Boolean(embeddingDocumentId), embeddingText: `${document.contextualPrefix}\n${document.content}` }));
-  }
-
-  async putEmbedding(workspaceId: string, user: AuthUser, documentId: string, input: EmbeddingInput) {
-    await this.workspaces.requireMembership(workspaceId, user);
-    const [document] = await this.database.db.select().from(retrievalDocuments).where(and(eq(retrievalDocuments.id, documentId), eq(retrievalDocuments.workspaceId, workspaceId))).limit(1);
-    if (!document) throw new NotFoundException('Retrieval document not found.');
-    if (document.contentHash !== input.contentHash) throw new ConflictException('The retrieval document changed after this embedding was generated. Refresh the document and embed its current content.');
-    const [stored] = await this.database.db.insert(retrievalEmbeddings).values({ documentId, model: input.model, contentHash: input.contentHash, embedding: input.embedding }).onConflictDoUpdate({ target: [retrievalEmbeddings.documentId, retrievalEmbeddings.model], set: { contentHash: input.contentHash, embedding: input.embedding, updatedAt: new Date() } }).returning();
-    return { documentId: stored!.documentId, model: stored!.model, contentHash: stored!.contentHash, dimensions: input.embedding.length, updatedAt: stored!.updatedAt };
+    const profile = await this.requireEmbeddingProfile(input.embeddingProfileKey);
+    const rows = await this.database.db.select({ document: retrievalDocuments, embeddingDocumentId: retrievalEmbeddings.documentId }).from(retrievalDocuments).leftJoin(retrievalEmbeddings, and(eq(retrievalEmbeddings.documentId, retrievalDocuments.id), eq(retrievalEmbeddings.profileKey, profile.key), eq(retrievalEmbeddings.contentHash, retrievalDocuments.contentHash))).where(and(eq(retrievalDocuments.workspaceId, workspaceId), eq(retrievalDocuments.projectId, input.projectId), input.missingEmbedding ? isNull(retrievalEmbeddings.documentId) : undefined)).orderBy(asc(retrievalDocuments.sourceType), asc(retrievalDocuments.sourceId), asc(retrievalDocuments.sourcePart)).limit(input.limit);
+    return rows.map(({ document, embeddingDocumentId }) => ({ ...document, embeddingPresent: Boolean(embeddingDocumentId), embeddingProfile: profile, embeddingText: `${profile.documentPrefix}${document.embeddingText}` }));
   }
 
   async search(workspaceId: string, user: AuthUser, input: RetrievalSearchInput) {
@@ -93,29 +98,52 @@ export class RetrievalService {
     const intent = input.intent ?? classifyRetrievalIntent(input.query);
     const relatedTaskIds = input.taskId && input.expandRelatedTasks ? await this.relatedTasks(workspaceId, input.projectId, input.taskId) : [];
     const allowedTaskIds = input.taskId ? [input.taskId, ...relatedTaskIds] : [];
+    const profile = input.embeddingProfileKey ? await this.requireEmbeddingProfile(input.embeddingProfileKey) : null;
+    if (profile && input.queryEmbedding!.length !== profile.dimensions) throw new BadRequestException(`Embedding profile ${profile.key} requires ${profile.dimensions} dimensions; received ${input.queryEmbedding!.length}.`);
     const vectorLiteral = input.queryEmbedding ? `[${input.queryEmbedding.join(',')}]` : null;
     const searchVector = sql`to_tsvector('simple', d.search_text)`;
     const textQuery = sql`websearch_to_tsquery('simple', ${input.query})`;
     const lexical = sql`ts_rank_cd(${searchVector}, ${textQuery})`;
-    const semantic = vectorLiteral ? sql`greatest(0, 1 - (e.embedding <=> ${vectorLiteral}::vector))` : sql`0::double precision`;
     const sourceFilter = input.sourceTypes.length ? sql`AND d.source_type IN (${sql.join(input.sourceTypes.map((sourceType) => sql`${sourceType}`), sql`, `)})` : sql``;
     const taskFilter = input.taskId ? sql`AND (d.task_id IS NULL OR d.task_id IN (${sql.join(allowedTaskIds.map((taskId) => sql`${taskId}::uuid`), sql`, `)}))` : sql``;
-    const temporalFilter = input.includeHistorical || intent === 'historical_explanation' ? sql`` : sql`AND d.status = 'current'`;
-    const embeddingJoin = input.embeddingModel ? sql`LEFT JOIN retrieval_embeddings e ON e.document_id = d.id AND e.model = ${input.embeddingModel} AND e.content_hash = d.content_hash` : sql`LEFT JOIN retrieval_embeddings e ON false`;
+    const temporalFilter = input.includeHistorical || intent === 'historical_explanation' ? sql`` : sql`AND d.status = 'current' AND (d.valid_from_at IS NULL OR d.valid_from_at <= now()) AND (d.valid_until_at IS NULL OR d.valid_until_at > now())`;
+    const semanticCandidates = profile && vectorLiteral ? sql`
+      SELECT e.document_id AS id, greatest(0, 1 - (e.embedding <=> ${vectorLiteral}::vector)) AS semantic_score
+      FROM retrieval_embeddings e
+      INNER JOIN retrieval_documents d ON d.id = e.document_id AND e.content_hash = d.content_hash
+      WHERE e.profile_key = ${profile.key}
+        AND d.workspace_id = ${workspaceId}::uuid AND d.project_id = ${input.projectId}::uuid
+        ${taskFilter} ${sourceFilter} ${temporalFilter}
+      ORDER BY e.embedding <=> ${vectorLiteral}::vector
+      LIMIT 250
+    ` : sql`SELECT NULL::uuid AS id, 0::double precision AS semantic_score WHERE false`;
     const candidates = await this.database.db.execute(sql`
+      WITH lexical_candidates AS MATERIALIZED (
+        SELECT d.id, ${lexical} AS lexical_score
+        FROM retrieval_documents d
+        WHERE d.workspace_id = ${workspaceId}::uuid AND d.project_id = ${input.projectId}::uuid
+          ${taskFilter} ${sourceFilter} ${temporalFilter}
+          AND ${searchVector} @@ ${textQuery}
+        ORDER BY lexical_score DESC
+        LIMIT 250
+      ), semantic_candidates AS MATERIALIZED (
+        ${semanticCandidates}
+      ), candidate_ids AS (
+        SELECT id FROM lexical_candidates
+        UNION
+        SELECT id FROM semantic_candidates
+      )
       SELECT d.id, d.workspace_id AS "workspaceId", d.project_id AS "projectId", d.task_id AS "taskId", d.run_id AS "runId",
-        d.source_type AS "sourceType", d.source_id AS "sourceId", d.title, d.content, d.contextual_prefix AS "contextualPrefix",
-        d.search_text AS "searchText", d.content_hash AS "contentHash", d.authority_basis_points AS "authorityBasisPoints",
+        d.source_type AS "sourceType", d.source_id AS "sourceId", d.source_part AS "sourcePart", d.title, d.content, d.contextual_prefix AS "contextualPrefix",
+        d.search_text AS "searchText", d.embedding_text AS "embeddingText", d.content_hash AS "contentHash", d.authority_basis_points AS "authorityBasisPoints",
         d.sensitivity, d.status, d.valid_from_at AS "validFromAt", d.valid_until_at AS "validUntilAt",
         d.source_recorded_at AS "sourceRecordedAt", d.metadata, d.indexed_at AS "indexedAt", d.created_at AS "createdAt", d.updated_at AS "updatedAt",
-        ${lexical} AS lexical_score, ${semantic} AS semantic_score
-      FROM retrieval_documents d
-      ${embeddingJoin}
-      WHERE d.workspace_id = ${workspaceId}::uuid AND d.project_id = ${input.projectId}::uuid
-        ${taskFilter} ${sourceFilter} ${temporalFilter}
-        AND (${searchVector} @@ ${textQuery} OR ${semantic} > 0)
-      ORDER BY greatest(${lexical}, ${semantic}) DESC, d.authority_basis_points DESC, d.source_recorded_at DESC
-      LIMIT 250
+        coalesce(l.lexical_score, 0::double precision) AS lexical_score,
+        coalesce(s.semantic_score, 0::double precision) AS semantic_score
+      FROM candidate_ids c
+      INNER JOIN retrieval_documents d ON d.id = c.id
+      LEFT JOIN lexical_candidates l ON l.id = d.id
+      LEFT JOIN semantic_candidates s ON s.id = d.id
     `);
     const now = Date.now();
     const ranked = (candidates.rows as unknown as CandidateRow[]).map((row) => {
@@ -129,7 +157,7 @@ export class RetrievalService {
       const score = hybridScore({ intent, lexical: lexicalNormalized, semantic: semanticScore, authority: row.authorityBasisPoints / 10_000, affinity, recency });
       return { document: stripSearchText(normalized), score, scores: { lexical: lexicalNormalized, semantic: semanticScore, authority: row.authorityBasisPoints / 10_000, affinity, recency } };
     }).sort((left, right) => right.score - left.score || right.document.sourceRecordedAt.getTime() - left.document.sourceRecordedAt.getTime()).slice(0, input.limit);
-    const [trace] = await this.database.db.insert(retrievalTraces).values({ workspaceId, projectId: input.projectId, taskId: input.taskId ?? null, queryHash: sha256(input.query), intent, embeddingModel: input.embeddingModel ?? null, filters: { projectId: input.projectId, taskId: input.taskId ?? null, sourceTypes: input.sourceTypes, includeHistorical: input.includeHistorical, expandedRelatedTaskIds: relatedTaskIds }, candidateCounts: { hybrid: candidates.rows.length, lexical: (candidates.rows as any[]).filter((entry) => Number(entry.lexical_score) > 0).length, semantic: (candidates.rows as any[]).filter((entry) => Number(entry.semantic_score) > 0).length }, scoring: { weights: retrievalWeights(intent), candidateLimit: 250 }, resultRefs: ranked.map((entry) => ({ documentId: entry.document.id, sourceType: entry.document.sourceType, sourceId: entry.document.sourceId, score: entry.score })), semanticUsed: Boolean(input.queryEmbedding), requestedByUserId: user.id }).returning();
+    const [trace] = await this.database.db.insert(retrievalTraces).values({ workspaceId, projectId: input.projectId, taskId: input.taskId ?? null, queryHash: sha256(input.query), intent, embeddingProfileKey: profile?.key ?? null, filters: { projectId: input.projectId, taskId: input.taskId ?? null, sourceTypes: input.sourceTypes, includeHistorical: input.includeHistorical, expandedRelatedTaskIds: relatedTaskIds }, candidateCounts: { hybrid: candidates.rows.length, lexical: (candidates.rows as any[]).filter((entry) => Number(entry.lexical_score) > 0).length, semantic: (candidates.rows as any[]).filter((entry) => Number(entry.semantic_score) > 0).length }, scoring: { weights: retrievalWeights(intent), lexicalCandidateLimit: 250, semanticCandidateLimit: 250, embeddingProfile: profile ? { key: profile.key, model: profile.model, modelRevision: profile.modelRevision, dimensions: profile.dimensions, distanceMetric: profile.distanceMetric } : null }, resultRefs: ranked.map((entry) => ({ documentId: entry.document.id, sourceType: entry.document.sourceType, sourceId: entry.document.sourceId, sourcePart: entry.document.sourcePart, score: entry.score })), semanticUsed: Boolean(profile && input.queryEmbedding), requestedByUserId: user.id }).returning();
     return { intent, results: ranked, trace: { id: trace!.id, queryHash: trace!.queryHash, filters: trace!.filters, candidateCounts: trace!.candidateCounts, scoring: trace!.scoring, semanticUsed: trace!.semanticUsed, createdAt: trace!.createdAt } };
   }
 
@@ -144,6 +172,14 @@ export class RetrievalService {
     const [project] = await this.database.db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.workspaceId, workspaceId), isNull(projects.deletedAt))).limit(1);
     if (!project) throw new NotFoundException('Project not found.');
     return project;
+  }
+
+  private async requireEmbeddingProfile(key: string) {
+    const [profile] = await this.database.db.select().from(embeddingProfiles).where(and(eq(embeddingProfiles.key, key), eq(embeddingProfiles.active, true))).limit(1);
+    if (!profile) throw new BadRequestException('The selected embedding profile does not exist or is inactive.');
+    if (profile.storageLane !== EMBEDDING_STORAGE_LANE) throw new BadRequestException(`Embedding profile ${profile.key} uses unsupported storage lane ${profile.storageLane}.`);
+    if (profile.distanceMetric !== 'cosine') throw new BadRequestException(`Embedding profile ${profile.key} uses unsupported distance metric ${profile.distanceMetric}.`);
+    return profile;
   }
 
   private async requireTask(workspaceId: string, projectId: string, taskId: string) {

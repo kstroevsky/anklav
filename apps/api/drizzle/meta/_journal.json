@@ -127,6 +127,13 @@
       "when": 1785845789136,
       "tag": "0017_upgrade_vector_086",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1785846888278,
+      "tag": "0018_harden_retrieval_profiles",
+      "breakpoints": true
     }
   ]
 }

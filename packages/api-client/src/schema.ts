@@ -2020,6 +2020,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/workspaces/{workspaceId}/retrieval/embedding-profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["RetrievalController_listEmbeddingProfiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/workspaces/{workspaceId}/retrieval/search": {
         parameters: {
             query?: never;
@@ -2061,22 +2077,6 @@ export interface paths {
         };
         get: operations["RetrievalController_listDocuments"];
         put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workspaces/{workspaceId}/retrieval/documents/{documentId}/embedding": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put: operations["RetrievalController_putEmbedding"];
         post?: never;
         delete?: never;
         options?: never;
@@ -5138,6 +5138,25 @@ export interface operations {
             };
         };
     };
+    RetrievalController_listEmbeddingProfiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     RetrievalController_search: {
         parameters: {
             query?: never;
@@ -5182,26 +5201,6 @@ export interface operations {
             header?: never;
             path: {
                 workspaceId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    RetrievalController_putEmbedding: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                workspaceId: string;
-                documentId: string;
             };
             cookie?: never;
         };

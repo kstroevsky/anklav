@@ -14,7 +14,7 @@ import { EvidenceService } from '../evidence/service';
 import { evidenceArtifactInput } from '../evidence/inputs';
 import { MemoryService } from '../memory/service';
 import { proposeClaimInput, proposeDecisionInput } from '../memory/inputs';
-import { embeddingInput, listRetrievalDocumentsInput, refreshRetrievalInput, retrievalSearchInput } from '../retrieval/inputs';
+import { listRetrievalDocumentsInput, refreshRetrievalInput, retrievalSearchInput } from '../retrieval/inputs';
 import { RetrievalService } from '../retrieval/service';
 
 @Injectable()
@@ -263,7 +263,11 @@ export class McpService {
       const { workspaceId: value, ...values } = input;
       return this.retrieval.search(value, user, values);
     });
-    read('list_retrieval_documents', 'List derived retrieval documents or documents missing an embedding for a selected model.', workspaceId.merge(listRetrievalDocumentsInput), async (input) => {
+    read('list_embedding_profiles', 'List active, revision-pinned embedding profiles and their exact dimensional and prefix contracts.', workspaceId, async (input) => {
+      check(input.workspaceId, OAUTH_READ_SCOPE);
+      return this.retrieval.listEmbeddingProfiles(input.workspaceId, user);
+    });
+    read('list_retrieval_documents', 'List derived retrieval documents or documents missing an embedding for a selected trusted profile.', workspaceId.merge(listRetrievalDocumentsInput), async (input) => {
       check(input.workspaceId, OAUTH_READ_SCOPE);
       const { workspaceId: value, ...values } = input;
       return this.retrieval.listDocuments(value, user, values);
@@ -408,11 +412,6 @@ export class McpService {
       check(input.workspaceId, OAUTH_WRITE_SCOPE);
       const { workspaceId: value, ...values } = input;
       return this.retrieval.refresh(value, user, values);
-    });
-    write('put_retrieval_embedding', 'Attach a 768-dimensional external embedding only when its content hash matches the current derived document.', workspaceId.extend({ documentId: id }).merge(embeddingInput), async (input) => {
-      check(input.workspaceId, OAUTH_WRITE_SCOPE);
-      const { workspaceId: value, documentId, ...values } = input;
-      return this.retrieval.putEmbedding(value, user, documentId, values);
     });
     write(
       'update_task',
